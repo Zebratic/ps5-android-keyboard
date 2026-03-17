@@ -225,7 +225,11 @@ class PS5KeyboardLayout @JvmOverloads constructor(
         return false
     }
 
-    private fun getChars(row: Int): List<String> = getActiveRows()[row].split(" ")
+    private fun getChars(row: Int): List<String> {
+        val rows = getActiveRows()
+        val r = row.coerceIn(0, rows.size - 1)
+        return rows[r].split(" ")
+    }
     private fun rowCount() = getActiveRows().size
     private fun colCount(row: Int) = getChars(row).size
 
@@ -962,9 +966,9 @@ class PS5KeyboardLayout @JvmOverloads constructor(
     fun toggleLayout() {
         symbolMode = !symbolMode
         dialpadMode = false
-        focusCol = focusCol.coerceAtMost(
-            if (focusRow >= 0) colCount(focusRow) - 1 else focusCol
-        )
+        val maxRow = rowCount() - 1
+        focusRow = focusRow.coerceIn(0, maxRow)
+        focusCol = focusCol.coerceIn(0, colCount(focusRow) - 1)
         invalidate()
     }
 
