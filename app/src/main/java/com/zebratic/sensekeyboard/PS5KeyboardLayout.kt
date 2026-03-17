@@ -52,6 +52,7 @@ class PS5KeyboardLayout @JvmOverloads constructor(
     private data class TrailPoint(val x: Float, val y: Float, val w: Float, val h: Float, var alpha: Float)
     private val trailPoints = mutableListOf<TrailPoint>()
     private var shifted = false
+    private var shiftLocked = false
     private var symbolMode = false
     private var dialpadMode = false
     private var listening = false
@@ -516,9 +517,28 @@ class PS5KeyboardLayout @JvmOverloads constructor(
                     displayChar = displayChar.uppercase()
                 }
 
+                // Shift key: fill when held, underline when locked
+                if (displayChar == "⇧" && (shifted || shiftLocked)) {
+                    val shiftFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        color = settings.accentColor; alpha = if (shiftLocked) 200 else 120
+                    }
+                    canvas.drawRoundRect(rect, cr, cr, shiftFillPaint)
+                }
+
                 val paint = if (isFocused) textPaint else dimTextPaint
                 val textY = y + keyH/2 - (paint.descent() + paint.ascent()) / 2
                 canvas.drawText(displayChar, x + keyW/2, textY, paint)
+
+                // Shift locked indicator: underline below the arrow
+                if (displayChar == "⇧" && shiftLocked) {
+                    val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        color = settings.accentColor; strokeWidth = 2f * dp
+                        style = Paint.Style.STROKE
+                    }
+                    val lineY = textY + 3f * dp
+                    val lineHalfW = keyW * 0.2f
+                    canvas.drawLine(x + keyW/2 - lineHalfW, lineY, x + keyW/2 + lineHalfW, lineY, linePaint)
+                }
             }
         }
 
@@ -824,6 +844,7 @@ class PS5KeyboardLayout @JvmOverloads constructor(
         focusRow = 0
         focusCol = 0
         shifted = false
+        shiftLocked = false
         currentWord = ""
         suggestions = emptyList()
         invalidate()
@@ -860,7 +881,14 @@ class PS5KeyboardLayout @JvmOverloads constructor(
             // Handle special keys
             if (c == "←") { onCursorLeft?.invoke(); return }
             if (c == "→") { onCursorRight?.invoke(); return }
-            if (c == "⇧") { shifted = !shifted; invalidate(); return }
+            if (c == "⇧") {
+                when {
+                    shiftLocked -> { shiftLocked = false; shifted = false }  // locked → off
+                    shifted -> { shiftLocked = true }                        // shift → locked
+                    else -> { shifted = true }                               // off → shift
+                }
+                invalidate(); return
+            }
             if (c == "⌫") { onBackspace?.invoke(); return }
             if (c == "␣") { onSpace?.invoke(); return }
             if (c == "Done") { onEnter?.invoke(); return }
@@ -874,6 +902,8 @@ class PS5KeyboardLayout @JvmOverloads constructor(
             }
             if (c.length == 1) {
                 onCharInput?.invoke(c[0])
+                // Auto-release shift after typing (unless locked)
+                if (shifted && !shiftLocked) { shifted = false }
                 // Track current word for suggestions
                 if (c[0].isLetterOrDigit()) {
                     currentWord += c[0]
@@ -909,6 +939,13 @@ class PS5KeyboardLayout @JvmOverloads constructor(
 
     fun setShift(on: Boolean) {
         shifted = on
+        if (!on) shiftLocked = false
+        invalidate()
+    }
+
+    fun setShiftLocked(locked: Boolean) {
+        shiftLocked = locked
+        shifted = locked
         invalidate()
     }
 
