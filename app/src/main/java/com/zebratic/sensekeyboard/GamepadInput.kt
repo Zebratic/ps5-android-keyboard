@@ -28,6 +28,7 @@ object GamepadInput {
     private var stickNavigated = false
     private var lastL2PressTime = 0L
     private var shiftLocked = false
+    fun isShiftLocked() = shiftLocked
     private const val DOUBLE_TAP_MS = 300L
 
     private var lastDpadTime = 0L

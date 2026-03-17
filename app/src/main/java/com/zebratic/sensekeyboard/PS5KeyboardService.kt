@@ -244,8 +244,14 @@ class PS5KeyboardService : InputMethodService() {
                     currentInputConnection?.commitText(text, 1)
                 }
             }
-            GamepadAction.SHIFT_ON -> view.setShift(true)
-            GamepadAction.SHIFT_OFF -> view.setShift(false)
+            GamepadAction.SHIFT_ON -> {
+                if (GamepadInput.isShiftLocked()) view.setShiftLocked(true)
+                else view.setShift(true)
+            }
+            GamepadAction.SHIFT_OFF -> {
+                view.setShiftLocked(false)
+                view.setShift(false)
+            }
             GamepadAction.SWITCH_LAYOUT -> view.toggleLayout()
             GamepadAction.SPEECH_INPUT -> speechInput?.startListening()
             GamepadAction.NONE -> return false

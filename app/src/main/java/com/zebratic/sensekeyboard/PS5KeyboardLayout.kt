@@ -53,6 +53,7 @@ class PS5KeyboardLayout @JvmOverloads constructor(
     private val trailPoints = mutableListOf<TrailPoint>()
     private var shifted = false
     private var shiftLocked = false
+    private var shiftHeld = false // true when L2 is physically held down
     // Remembered X pixel position for stable up/down navigation
     private var rememberedX: Float = -1f
     private var symbolMode = false
@@ -864,6 +865,7 @@ class PS5KeyboardLayout @JvmOverloads constructor(
         focusCol = 0
         shifted = false
         shiftLocked = false
+        shiftHeld = false
         currentWord = ""
         suggestions = emptyList()
         invalidate()
@@ -928,10 +930,8 @@ class PS5KeyboardLayout @JvmOverloads constructor(
             }
             if (c.length == 1) {
                 onCharInput?.invoke(c[0])
-                // Auto-release shift after typing (unless locked)
-                if (shifted && !shiftLocked) { shifted = false }
-                // Ensure shifted stays true when locked
-                if (shiftLocked) shifted = true
+                // Auto-release shift after typing (unless locked or held via L2)
+                if (shifted && !shiftLocked && !shiftHeld) { shifted = false }
                 // Track current word for suggestions
                 if (c[0].isLetterOrDigit()) {
                     currentWord += c[0]
@@ -966,7 +966,8 @@ class PS5KeyboardLayout @JvmOverloads constructor(
     }
 
     fun setShift(on: Boolean) {
-        if (shiftLocked) return // don't override locked state from external calls
+        if (shiftLocked) return // don't override locked state from on-screen ⇧
+        shiftHeld = on
         shifted = on
         invalidate()
     }
