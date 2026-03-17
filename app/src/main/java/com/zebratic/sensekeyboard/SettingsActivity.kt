@@ -117,6 +117,7 @@ fun GlassCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.()
 @Composable
 fun SenseKeyboardApp(onEnableKeyboard: () -> Unit, onSelectKeyboard: () -> Unit) {
     var selectedTab by remember { mutableIntStateOf(0) }
+    var showPreview by remember { mutableStateOf(false) }
     val tabs = listOf("Setup", "Settings", "Controls", "Debug")
 
     Column(
@@ -188,17 +189,74 @@ fun SenseKeyboardApp(onEnableKeyboard: () -> Unit, onSelectKeyboard: () -> Unit)
         }
 
         // Content
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 14.dp)
-        ) {
-            when (selectedTab) {
-                0 -> SetupTab(onEnableKeyboard, onSelectKeyboard)
-                1 -> SettingsTab()
-                2 -> ControlsTab()
-                3 -> DebugTab()
+        Box(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp, vertical = 14.dp)
+            ) {
+                when (selectedTab) {
+                    0 -> SetupTab(onEnableKeyboard, onSelectKeyboard)
+                    1 -> SettingsTab(showPreview, { showPreview = it })
+                    2 -> ControlsTab()
+                    3 -> DebugTab()
+                }
+            }
+
+            // Keyboard preview overlay — positioned like real keyboard
+            if (showPreview) {
+                val context = LocalContext.current
+                val previewSettings = remember { KeyboardSettings(context) }
+                val screenW = LocalContext.current.resources.displayMetrics.widthPixels
+                val screenH = LocalContext.current.resources.displayMetrics.heightPixels
+                val kbW = previewSettings.keyboardWidthPercent * screenW / 100
+                val kbH = previewSettings.keyboardHeightPercent * screenH / 100
+                val marginXPx = previewSettings.marginX * screenW / 100
+                val marginYPx = previewSettings.marginY * screenH / 100
+                val density = LocalContext.current.resources.displayMetrics.density
+
+                val alignH = when (previewSettings.anchorX) {
+                    0 -> Alignment.Start; 2 -> Alignment.End; else -> Alignment.CenterHorizontally
+                }
+                val alignV = when (previewSettings.anchorY) {
+                    0 -> Alignment.Top; 1 -> Alignment.CenterVertically; else -> Alignment.Bottom
+                }
+                val align = when {
+                    alignV == Alignment.Top && alignH == Alignment.Start -> Alignment.TopStart
+                    alignV == Alignment.Top && alignH == Alignment.End -> Alignment.TopEnd
+                    alignV == Alignment.Top -> Alignment.TopCenter
+                    alignV == Alignment.CenterVertically && alignH == Alignment.Start -> Alignment.CenterStart
+                    alignV == Alignment.CenterVertically && alignH == Alignment.End -> Alignment.CenterEnd
+                    alignV == Alignment.CenterVertically -> Alignment.Center
+                    alignH == Alignment.Start -> Alignment.BottomStart
+                    alignH == Alignment.End -> Alignment.BottomEnd
+                    else -> Alignment.BottomCenter
+                }
+
+                Box(modifier = Modifier.fillMaxSize()
+                    .padding(
+                        start = (marginXPx / density).dp,
+                        end = (marginXPx / density).dp,
+                        top = (marginYPx / density).dp,
+                        bottom = (marginYPx / density).dp
+                    ),
+                    contentAlignment = align
+                ) {
+                    AndroidView(
+                        factory = { ctx ->
+                            PS5KeyboardLayout(ctx).apply {
+                                reloadSettings()
+                                isFocusable = false
+                                isClickable = false
+                            }
+                        },
+                        modifier = Modifier
+                            .width((kbW / density).dp)
+                            .height((kbH / density).dp),
+                        update = { it.reloadSettings() }
+                    )
+                }
             }
         }
     }
@@ -279,7 +337,7 @@ fun AccentButton(text: String, onClick: () -> Unit) {
 
 // --- Settings Tab ---
 @Composable
-fun SettingsTab() {
+fun SettingsTab(showPreview: Boolean, onPreviewChanged: (Boolean) -> Unit) {
     val context = LocalContext.current
     val settings = remember { KeyboardSettings(context) }
 
@@ -572,15 +630,14 @@ fun SettingsTab() {
             }
         }
     }
-    // Keyboard Preview
+    // Keyboard Preview toggle (overlay rendered in parent)
     Spacer(modifier = Modifier.height(10.dp))
-    var showPreview by remember { mutableStateOf(false) }
     GlassCard {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically) {
             SectionLabel("Keyboard Preview")
             Switch(
-                checked = showPreview, onCheckedChange = { showPreview = it },
+                checked = showPreview, onCheckedChange = { onPreviewChanged(it) },
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = Color.White, checkedTrackColor = AccentColor,
                     uncheckedThumbColor = TextSecondary, uncheckedTrackColor = SurfaceColor
@@ -588,22 +645,7 @@ fun SettingsTab() {
                 modifier = Modifier.height(18.dp)
             )
         }
-        if (showPreview) {
-            Spacer(modifier = Modifier.height(4.dp))
-            AndroidView(
-                factory = { ctx ->
-                    PS5KeyboardLayout(ctx).apply {
-                        reloadSettings()
-                        // Non-interactive — just visual
-                        isFocusable = false
-                        isClickable = false
-                    }
-                },
-                modifier = Modifier.fillMaxWidth().height(160.dp)
-                    .clip(RoundedCornerShape(8.dp)),
-                update = { it.reloadSettings() }
-            )
-        }
+        Text("Shows keyboard overlay at real position", color = TextSecondary, fontSize = 8.sp)
     }
     } // close Column wrapper
 }
@@ -677,12 +719,16 @@ fun ColorPicker(selected: Int, onSelected: (Int) -> Unit) {
         0xFFFFFFFF.toInt() to "White"
     )
 
+    var currentSelected by remember { mutableStateOf(selected) }
+    // Sync if parent changes
+    if (selected != currentSelected) currentSelected = selected
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         colors.forEach { (color, _) ->
-            val isSelected = selected == color
+            val isSelected = currentSelected == color
             var isFocused by remember { mutableStateOf(false) }
             Box(
                 modifier = Modifier
@@ -694,25 +740,26 @@ fun ColorPicker(selected: Int, onSelected: (Int) -> Unit) {
                             (event.key == androidx.compose.ui.input.key.Key.DirectionCenter ||
                              event.key == androidx.compose.ui.input.key.Key.Enter ||
                              event.key == androidx.compose.ui.input.key.Key.ButtonA)) {
-                            onSelected(color); true
+                            currentSelected = color; onSelected(color); true
                         } else false
                     }
                     .clip(RoundedCornerShape(4.dp))
                     .background(Color(color.toLong() or 0xFF000000L))
                     .border(
                         when {
+                            isSelected && isFocused -> 3.dp
                             isSelected -> 3.dp
                             isFocused -> 2.dp
                             else -> 0.dp
                         },
                         when {
-                            isSelected -> Color.White
-                            isFocused -> AccentColor
+                            isSelected -> Color(0xFF4FC3F7) // light blue = selected
+                            isFocused -> Color.White // white = focused
                             else -> Color.Transparent
                         },
                         RoundedCornerShape(4.dp)
                     )
-                    .clickable { onSelected(color) }
+                    .clickable { currentSelected = color; onSelected(color) }
             )
         }
     }
@@ -756,7 +803,7 @@ fun DarkColorPicker(selected: Int, onSelected: (Int) -> Unit) {
                         .background(Color(adjusted.toLong() or 0xFF000000L))
                         .border(
                             when { isSelected -> 3.dp; isFocused -> 2.dp; else -> 1.dp },
-                            when { isSelected -> Color.White; isFocused -> AccentColor; else -> Color(0x22FFFFFF) },
+                            when { isSelected -> Color(0xFF4FC3F7); isFocused -> Color.White; else -> Color(0x22FFFFFF) },
                             RoundedCornerShape(4.dp)
                         )
                         .clickable { onSelected(adjusted) }
