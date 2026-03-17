@@ -35,6 +35,8 @@ object GamepadInput {
     private var lastDpadKeyCode = 0
     private var lastBumperTime = 0L
     private var bumperHeldSince = 0L
+    private var lastActionTime = 0L
+    private var actionHeldSince = 0L
 
     fun processKeyEvent(event: KeyEvent): GamepadAction {
         if (event.action != KeyEvent.ACTION_DOWN) return GamepadAction.NONE
@@ -46,8 +48,12 @@ object GamepadInput {
         val isBumper = event.keyCode in intArrayOf(
             KeyEvent.KEYCODE_BUTTON_L1, KeyEvent.KEYCODE_BUTTON_R1
         )
+        val isRepeatable = event.keyCode in intArrayOf(
+            KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_DPAD_CENTER, // Cross — type char
+            KeyEvent.KEYCODE_BUTTON_X, KeyEvent.KEYCODE_DEL           // Square — backspace
+        )
 
-        if (event.repeatCount > 0 && !isDpad && !isBumper) return GamepadAction.NONE
+        if (event.repeatCount > 0 && !isDpad && !isBumper && !isRepeatable) return GamepadAction.NONE
 
         if (isDpad) {
             val now = System.currentTimeMillis()
@@ -62,6 +68,19 @@ object GamepadInput {
                 if (holdDuration < DPAD_INITIAL_DELAY_MS) return GamepadAction.NONE
                 if (now - lastDpadTime < DPAD_REPEAT_RATE_MS) return GamepadAction.NONE
                 lastDpadTime = now
+            }
+        }
+
+        // Cross/Square repeat (hold to repeat char input / backspace)
+        if (isRepeatable) {
+            val now = System.currentTimeMillis()
+            if (event.repeatCount == 0) {
+                actionHeldSince = now; lastActionTime = now
+            } else {
+                val holdDuration = now - actionHeldSince
+                if (holdDuration < DPAD_INITIAL_DELAY_MS) return GamepadAction.NONE
+                if (now - lastActionTime < DPAD_REPEAT_RATE_MS) return GamepadAction.NONE
+                lastActionTime = now
             }
         }
 
