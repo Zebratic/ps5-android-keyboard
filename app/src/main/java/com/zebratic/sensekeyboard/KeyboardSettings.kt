@@ -70,17 +70,7 @@ class KeyboardSettings(context: Context) {
         get() = prefs.getBoolean("sound_enabled", false)
         set(v) = prefs.edit().putBoolean("sound_enabled", v).apply()
 
-    var vibrateOnClick: Boolean
-        get() = prefs.getBoolean("vibrate_click", true)
-        set(v) = prefs.edit().putBoolean("vibrate_click", v).apply()
 
-    var vibrateOnMove: Boolean
-        get() = prefs.getBoolean("vibrate_move", false)
-        set(v) = prefs.edit().putBoolean("vibrate_move", v).apply()
-
-    var vibrateIntensity: Int
-        get() = prefs.getInt("vibrate_intensity", 50) // 0-100
-        set(v) = prefs.edit().putInt("vibrate_intensity", v.coerceIn(0, 100)).apply()
 
     // Show hint bar at bottom
     var showHintBar: Boolean
@@ -175,9 +165,39 @@ class KeyboardSettings(context: Context) {
         get() = prefs.getString("active_preset", "ps5") ?: "ps5"
         set(v) = prefs.edit().putString("active_preset", v).apply()
 
-    // Presets — only change visual style design, NOT colors
+    // Presets — change visual design (shape, spacing, highlight) NOT colors
     fun applyPreset(preset: String) {
         activePreset = preset
         visualStyle = preset
+        when (preset) {
+            "standard" -> {
+                keyRounding = 6
+                highlightStyle = "border"
+                highlightBorderSize = 3
+                clickAnimation = "fill"
+                bgOpacity = 90
+            }
+            "rounded" -> {
+                keyRounding = 16
+                highlightStyle = "glow"
+                highlightBorderSize = 4
+                clickAnimation = "pop"
+                bgOpacity = 85
+            }
+            "minimal" -> {
+                keyRounding = 4
+                highlightStyle = "border"
+                highlightBorderSize = 2
+                clickAnimation = "none"
+                bgOpacity = 95
+            }
+            "retro" -> {
+                keyRounding = 0
+                highlightStyle = "fill"
+                highlightBorderSize = 3
+                clickAnimation = "flash"
+                bgOpacity = 100
+            }
+        }
     }
 }

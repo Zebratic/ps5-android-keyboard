@@ -291,9 +291,7 @@ fun SettingsTab() {
     var anchorX by remember { mutableIntStateOf(settings.anchorX) }
     var anchorY by remember { mutableIntStateOf(settings.anchorY) }
     var suggestions by remember { mutableStateOf(settings.suggestionsEnabled) }
-    var vibrateClick by remember { mutableStateOf(settings.vibrateOnClick) }
-    var vibrateMove by remember { mutableStateOf(settings.vibrateOnMove) }
-    var vibrateIntensity by remember { mutableFloatStateOf(settings.vibrateIntensity.toFloat()) }
+
     var showHintBar by remember { mutableStateOf(settings.showHintBar) }
     var numberRow by remember { mutableStateOf(settings.numberRowEnabled) }
     var highlightStyle by remember { mutableStateOf(settings.highlightStyle) }
@@ -451,16 +449,6 @@ fun SettingsTab() {
                 Spacer(modifier = Modifier.height(6.dp))
                 SettingSwitch("Number Row", numberRow) { numberRow = it; settings.numberRowEnabled = it }
                 Spacer(modifier = Modifier.height(6.dp))
-                // Border Highlight replaced by Highlight Style dropdown
-                Spacer(modifier = Modifier.height(6.dp))
-                SettingSwitch("Vibrate on Click", vibrateClick) { vibrateClick = it; settings.vibrateOnClick = it }
-                Spacer(modifier = Modifier.height(6.dp))
-                SettingSwitch("Vibrate on Move", vibrateMove) { vibrateMove = it; settings.vibrateOnMove = it }
-                Spacer(modifier = Modifier.height(6.dp))
-                if (vibrateClick || vibrateMove) {
-                    SettingSlider("Vibration Intensity", vibrateIntensity, 0f, 100f, "%") { vibrateIntensity = it; settings.vibrateIntensity = it.toInt() }
-                    Spacer(modifier = Modifier.height(6.dp))
-                }
                 SettingSwitch("Show Hint Bar", showHintBar) { showHintBar = it; settings.showHintBar = it }
                 Spacer(modifier = Modifier.height(6.dp))
                 SettingSwitch("Horizontal Wrap", hWrap) { hWrap = it; settings.horizontalWrap = it }

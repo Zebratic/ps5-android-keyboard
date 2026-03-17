@@ -2,10 +2,7 @@ package com.zebratic.sensekeyboard
 
 import android.content.Context
 import android.graphics.*
-import android.os.Build
-import android.os.VibrationEffect
-import android.os.Vibrator
-import android.os.VibratorManager
+
 import android.util.AttributeSet
 import android.view.View
 
@@ -553,31 +550,6 @@ class PS5KeyboardLayout @JvmOverloads constructor(
         }
     }
 
-    private fun vibrate(type: String) {
-        val shouldVibrate = when (type) {
-            "move" -> settings.vibrateOnMove
-            "click" -> settings.vibrateOnClick
-            else -> false
-        }
-        if (!shouldVibrate) return
-        try {
-            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)?.defaultVibrator
-            } else {
-                @Suppress("DEPRECATION")
-                context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
-            }
-            val amplitude = (settings.vibrateIntensity * 255 / 100).coerceIn(1, 255)
-            val duration = if (type == "move") 10L else 25L
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator?.vibrate(VibrationEffect.createOneShot(duration, amplitude))
-            } else {
-                @Suppress("DEPRECATION")
-                vibrator?.vibrate(duration)
-            }
-        } catch (_: Exception) { }
-    }
-
     fun moveFocus(dx: Int, dy: Int) {
         val minRow = if (settings.suggestionsEnabled && suggestions.isNotEmpty()) -1 else 0
         val maxRow = rowCount() - 1
@@ -613,7 +585,6 @@ class PS5KeyboardLayout @JvmOverloads constructor(
             focusCol = focusCol.coerceIn(0, maxCol)
         }
 
-        if (dx != 0 || dy != 0) vibrate("move")
 
         // Spawn wind particles
         if (dx != 0 || dy != 0) {
@@ -636,7 +607,6 @@ class PS5KeyboardLayout @JvmOverloads constructor(
     }
 
     fun pressCurrentKey() {
-        vibrate("click")
         // Trigger click animation
         if (settings.clickAnimation != "none") {
             clickAnimRow = focusRow; clickAnimCol = focusCol
