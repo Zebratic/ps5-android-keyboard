@@ -53,6 +53,8 @@ class PS5KeyboardLayout @JvmOverloads constructor(
     private val trailPoints = mutableListOf<TrailPoint>()
     private var shifted = false
     private var shiftLocked = false
+    // Remembered X pixel position for stable up/down navigation
+    private var rememberedX: Float = -1f
     private var symbolMode = false
     private var dialpadMode = false
     private var listening = false
@@ -790,40 +792,37 @@ class PS5KeyboardLayout @JvmOverloads constructor(
         val minRow = if (settings.suggestionsEnabled && suggestions.isNotEmpty()) -1 else 0
         val maxRow = rowCount() - 1
 
-        val oldRow = focusRow
-        val oldColCount = when {
-            oldRow == -1 -> suggestions.size.coerceAtLeast(1)
-            oldRow in 0 until rowCount() -> colCount(oldRow)
-            else -> 1
-        }
-
-        // Vertical movement
+        // Vertical movement — use remembered X to find nearest key
         if (dy != 0) {
-            val newRow = focusRow + dy
-            if (newRow < minRow) {
-                focusRow = if (settings.verticalWrap) maxRow else minRow
-            } else if (newRow > maxRow) {
-                focusRow = if (settings.verticalWrap) minRow else maxRow
-            } else {
-                focusRow = newRow
+            // If no remembered X yet, capture current center
+            if (rememberedX < 0f) {
+                val curRect = getKeyRect(focusRow, focusCol)
+                rememberedX = curRect?.centerX() ?: 0f
             }
 
-            // Proportional column mapping when changing rows
-            if (focusRow != oldRow) {
-                val newMaxCol = when {
-                    focusRow == -1 -> (suggestions.size - 1).coerceAtLeast(0)
-                    else -> colCount(focusRow) - 1
-                }
-                if (newMaxCol != oldColCount - 1 && oldColCount > 0) {
-                    val proportion = focusCol.toFloat() / (oldColCount - 1).coerceAtLeast(1)
-                    focusCol = (proportion * newMaxCol).toInt().coerceIn(0, newMaxCol)
-                } else {
-                    focusCol = focusCol.coerceIn(0, newMaxCol)
-                }
+            val newRow = focusRow + dy
+            focusRow = when {
+                newRow < minRow -> if (settings.verticalWrap) maxRow else minRow
+                newRow > maxRow -> if (settings.verticalWrap) minRow else maxRow
+                else -> newRow
             }
+
+            // Find nearest column in new row by X position
+            val newMaxCol = when {
+                focusRow == -1 -> (suggestions.size - 1).coerceAtLeast(0)
+                else -> colCount(focusRow) - 1
+            }
+            var bestCol = 0
+            var bestDist = Float.MAX_VALUE
+            for (c in 0..newMaxCol) {
+                val r = getKeyRect(focusRow, c) ?: continue
+                val dist = kotlin.math.abs(r.centerX() - rememberedX)
+                if (dist < bestDist) { bestDist = dist; bestCol = c }
+            }
+            focusCol = bestCol
         }
 
-        // Horizontal movement
+        // Horizontal movement — update remembered X
         val maxCol = when {
             focusRow == -1 -> (suggestions.size - 1).coerceAtLeast(0)
             else -> colCount(focusRow) - 1
@@ -842,6 +841,12 @@ class PS5KeyboardLayout @JvmOverloads constructor(
             focusCol = focusCol.coerceIn(0, maxCol)
         }
 
+
+        // Update remembered X on horizontal movement
+        if (dx != 0) {
+            val newRect = getKeyRect(focusRow, focusCol)
+            rememberedX = newRect?.centerX() ?: rememberedX
+        }
 
         // Navigation effect
         if (dx != 0 || dy != 0) {
@@ -974,17 +979,39 @@ class PS5KeyboardLayout @JvmOverloads constructor(
 
     fun toggleDialpad() {
         dialpadMode = !dialpadMode
-        focusRow = 0
-        focusCol = 0
+        if (dialpadMode) {
+            // In dialpad, focus on ABC button
+            focusToActionKey("ABC")
+        } else {
+            // Back to letters, focus on 123 button
+            focusToActionKey("123")
+        }
         invalidate()
+    }
+
+    private fun focusToActionKey(key: String) {
+        val rows = getActiveRows()
+        for (r in rows.indices) {
+            val chars = rows[r].split(" ")
+            for (c in chars.indices) {
+                if (chars[c] == key) {
+                    focusRow = r; focusCol = c
+                    rememberedX = -1f // reset
+                    return
+                }
+            }
+        }
+        // Fallback
+        focusRow = (rowCount() - 1).coerceAtLeast(0)
+        focusCol = 0
+        rememberedX = -1f
     }
 
     fun toggleLayout() {
         symbolMode = !symbolMode
         dialpadMode = false
-        val maxRow = rowCount() - 1
-        focusRow = focusRow.coerceIn(0, maxRow)
-        focusCol = focusCol.coerceIn(0, colCount(focusRow) - 1)
+        // Focus on the ABC/@#: button in the new layout
+        focusToActionKey(if (symbolMode) "ABC" else "@#:")
         invalidate()
     }
 
