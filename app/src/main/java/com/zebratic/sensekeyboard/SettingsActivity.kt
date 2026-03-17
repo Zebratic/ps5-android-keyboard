@@ -340,33 +340,75 @@ fun AccentButton(text: String, onClick: () -> Unit) {
 fun SettingsTab(showPreview: Boolean, onPreviewChanged: (Boolean) -> Unit) {
     val context = LocalContext.current
     val settings = remember { KeyboardSettings(context) }
+    var settingsSubTab by remember { mutableIntStateOf(0) }
+    val subTabs = listOf("General", "Proportions", "Colors", "Effects", "Font", "Keys")
 
-    var selectedLayout by remember { mutableStateOf(settings.keyboardLayout) }
+    // Shared state for preset detection
     var selectedPreset by remember { mutableStateOf(settings.detectPreset()) }
     val markCustom = { settings.markCustomIfChanged(); selectedPreset = settings.activePreset }
-    var bgOpacity by remember { mutableFloatStateOf(settings.bgOpacity.toFloat()) }
-    var kbHeight by remember { mutableFloatStateOf(settings.keyboardHeightPercent.toFloat()) }
-    var kbWidth by remember { mutableFloatStateOf(settings.keyboardWidthPercent.toFloat()) }
-    var marginX by remember { mutableFloatStateOf(settings.marginX.toFloat()) }
-    var marginY by remember { mutableFloatStateOf(settings.marginY.toFloat()) }
-    var anchorX by remember { mutableIntStateOf(settings.anchorX) }
-    var anchorY by remember { mutableIntStateOf(settings.anchorY) }
-    var suggestions by remember { mutableStateOf(settings.suggestionsEnabled) }
-
-    var showHintBar by remember { mutableStateOf(settings.showHintBar) }
-    var numberRow by remember { mutableStateOf(settings.numberRowEnabled) }
-    var highlightStyle by remember { mutableStateOf(settings.highlightStyle) }
-    var highlightBorderSize by remember { mutableFloatStateOf(settings.highlightBorderSize.toFloat()) }
-    var keyRounding by remember { mutableFloatStateOf(settings.keyRounding.toFloat()) }
-    var clickAnimation by remember { mutableStateOf(settings.clickAnimation) }
-    var hWrap by remember { mutableStateOf(settings.horizontalWrap) }
-    var vWrap by remember { mutableStateOf(settings.verticalWrap) }
-    var dpadSpeed by remember { mutableFloatStateOf(settings.dpadRepeatRate.toFloat()) }
 
     Column {
-    // Inline test input — press X to enter edit mode, navigable past with D-pad
-    val focusManager = LocalFocusManager.current
-    val settingsFocusTarget = remember { FocusRequester() }
+        // Sub-tab navbar
+        Row(
+            modifier = Modifier.fillMaxWidth()
+                .background(SurfaceColor.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            subTabs.forEachIndexed { i, label ->
+                val isSelected = settingsSubTab == i
+                var isFocused by remember { mutableStateOf(false) }
+                Box(
+                    modifier = Modifier
+                        .onFocusChanged { isFocused = it.isFocused }
+                        .focusable()
+                        .clickable { settingsSubTab = i }
+                        .onKeyEvent { event ->
+                            if (event.type == androidx.compose.ui.input.key.KeyEventType.KeyDown &&
+                                (event.key == androidx.compose.ui.input.key.Key.DirectionCenter ||
+                                 event.key == androidx.compose.ui.input.key.Key.Enter ||
+                                 event.key == androidx.compose.ui.input.key.Key.ButtonA)) {
+                                settingsSubTab = i; true
+                            } else false
+                        }
+                        .background(
+                            when {
+                                isSelected -> AccentColor; isFocused -> AccentColor.copy(alpha = 0.3f)
+                                else -> Color.Transparent
+                            }, RoundedCornerShape(6.dp)
+                        )
+                        .border(
+                            if (isFocused && !isSelected) 1.dp else 0.dp,
+                            if (isFocused && !isSelected) AccentColor else Color.Transparent,
+                            RoundedCornerShape(6.dp)
+                        )
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text(label, color = if (isSelected || isFocused) Color.White else TextSecondary,
+                        fontSize = 10.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Test input (always visible)
+        SettingsTestInput()
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Sub-tab content
+        when (settingsSubTab) {
+            0 -> SettingsGeneral(settings, selectedPreset, { selectedPreset = it }, markCustom, showPreview, onPreviewChanged)
+            1 -> SettingsProportions(settings, markCustom)
+            2 -> SettingsColors(settings, markCustom)
+            3 -> SettingsEffects(settings, markCustom)
+            4 -> SettingsFont(settings)
+            5 -> SettingsKeys(settings, markCustom)
+        }
+    }
+}
+
+@Composable
+private fun SettingsTestInput() {
     var testText by remember { mutableStateOf("") }
     var testEditing by remember { mutableStateOf(false) }
     val testFocusReq = remember { FocusRequester() }
@@ -374,8 +416,7 @@ fun SettingsTab(showPreview: Boolean, onPreviewChanged: (Boolean) -> Unit) {
 
     if (testEditing) {
         OutlinedTextField(
-            value = testText,
-            onValueChange = { testText = it },
+            value = testText, onValueChange = { testText = it },
             modifier = Modifier.fillMaxWidth().height(42.dp)
                 .focusRequester(testFocusReq)
                 .onKeyEvent { event ->
@@ -391,8 +432,7 @@ fun SettingsTab(showPreview: Boolean, onPreviewChanged: (Boolean) -> Unit) {
                 focusedContainerColor = SurfaceColor, unfocusedContainerColor = SurfaceColor,
                 cursorColor = AccentColor
             ),
-            shape = RoundedCornerShape(8.dp),
-            singleLine = true
+            shape = RoundedCornerShape(8.dp), singleLine = true
         )
         LaunchedEffect(Unit) { testFocusReq.requestFocus() }
     } else {
@@ -408,246 +448,233 @@ fun SettingsTab(showPreview: Boolean, onPreviewChanged: (Boolean) -> Unit) {
                         testEditing = true; true
                     } else false
                 }
-                .background(
-                    if (testBoxFocused) AccentColor.copy(alpha = 0.15f) else SurfaceColor,
-                    RoundedCornerShape(8.dp)
-                )
-                .border(
-                    if (testBoxFocused) 2.dp else 1.dp,
-                    if (testBoxFocused) AccentColor else CardBorder,
-                    RoundedCornerShape(8.dp)
-                )
+                .background(if (testBoxFocused) AccentColor.copy(alpha = 0.15f) else SurfaceColor, RoundedCornerShape(8.dp))
+                .border(if (testBoxFocused) 2.dp else 1.dp, if (testBoxFocused) AccentColor else CardBorder, RoundedCornerShape(8.dp))
                 .padding(horizontal = 12.dp),
             contentAlignment = Alignment.CenterStart
         ) {
-            Text(
-                if (testText.isEmpty()) "Press ✕ to test keyboard" else testText,
+            Text(if (testText.isEmpty()) "Press ✕ to test keyboard" else testText,
                 color = if (testText.isEmpty()) TextSecondary.copy(alpha = 0.4f) else TextPrimary,
-                fontSize = 11.sp, maxLines = 1
-            )
+                fontSize = 11.sp, maxLines = 1)
         }
     }
-    Spacer(modifier = Modifier.height(10.dp))
+}
+
+@Composable
+private fun SettingsGeneral(settings: KeyboardSettings, selectedPreset: String, onPresetChanged: (String) -> Unit, markCustom: () -> Unit, showPreview: Boolean, onPreviewChanged: (Boolean) -> Unit) {
+    var selectedLayout by remember { mutableStateOf(settings.keyboardLayout) }
+    var suggestions by remember { mutableStateOf(settings.suggestionsEnabled) }
+    var numberRow by remember { mutableStateOf(settings.numberRowEnabled) }
+    var showHintBar by remember { mutableStateOf(settings.showHintBar) }
+    var hWrap by remember { mutableStateOf(settings.horizontalWrap) }
+    var vWrap by remember { mutableStateOf(settings.verticalWrap) }
+    var dpadSpeed by remember { mutableFloatStateOf(settings.dpadRepeatRate.toFloat()) }
+    val context = LocalContext.current
 
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        // Column 1
         Column(modifier = Modifier.weight(1f)) {
-            GlassCard(modifier = Modifier.focusRequester(settingsFocusTarget)) {
+            GlassCard {
                 SectionLabel("Keyboard Layout")
                 DropdownSetting(
                     options = KeyboardLayouts.ALL_LETTER_LAYOUTS.map { it.id to it.name },
                     selected = selectedLayout,
                     onSelected = { selectedLayout = it; settings.keyboardLayout = it }
                 )
-
                 Spacer(modifier = Modifier.height(10.dp))
-                SectionLabel("Visual Style")
+                SectionLabel("Visual Style Preset")
                 DropdownSetting(
-                    options = listOf(
-                        "ps5" to "PS5", "xbox" to "Xbox", "steam" to "Steam",
-                        "minimal" to "Minimal", "rounded" to "Rounded", "retro" to "Retro",
-                        "custom" to "Custom"
-                    ),
+                    options = listOf("ps5" to "PS5", "xbox" to "Xbox", "steam" to "Steam",
+                        "minimal" to "Minimal", "rounded" to "Rounded", "retro" to "Retro", "custom" to "Custom"),
                     selected = selectedPreset,
                     onSelected = {
-                        if (it != "custom") {
-                            settings.applyPreset(it)
-                            // Refresh all state vars
-                            highlightStyle = settings.highlightStyle
-                            highlightBorderSize = settings.highlightBorderSize.toFloat()
-                            keyRounding = settings.keyRounding.toFloat()
-                            clickAnimation = settings.clickAnimation
-                            bgOpacity = settings.bgOpacity.toFloat()
-                        }
-                        selectedPreset = it
+                        if (it != "custom") settings.applyPreset(it)
+                        onPresetChanged(it)
                     }
                 )
-
-                Spacer(modifier = Modifier.height(10.dp))
-                SectionLabel("Accent Color")
-                ColorPicker(
-                    selected = settings.accentColor,
-                    onSelected = { settings.accentColor = it; markCustom() }
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-                SectionLabel("Highlight Style")
-                DropdownSetting(
-                    options = listOf("border" to "Border", "fill" to "Fill", "glow" to "Glow", "none" to "None"),
-                    selected = highlightStyle,
-                    onSelected = { highlightStyle = it; settings.highlightStyle = it; markCustom() }
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-                SectionLabel("Click Animation")
-                DropdownSetting(
-                    options = listOf("fill" to "Fill", "pop" to "Pop", "flash" to "Flash", "none" to "None"),
-                    selected = clickAnimation,
-                    onSelected = { clickAnimation = it; settings.clickAnimation = it; markCustom() }
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-                SectionLabel("Navigation Effect")
-                var navEffect by remember { mutableStateOf(settings.navEffect) }
-                DropdownSetting(
-                    options = listOf("wind" to "Wind Particles", "slide" to "Sliding Border", "ripple" to "Ripple", "trail" to "Ghost Trail", "none" to "None"),
-                    selected = navEffect,
-                    onSelected = { navEffect = it; settings.navEffect = it; markCustom() }
-                )
             }
-
-            Spacer(modifier = Modifier.height(10.dp))
-            GlassCard {
-                SectionLabel("Key Appearance")
-                SettingSlider("Border Size", highlightBorderSize, 1f, 8f, "dp") { highlightBorderSize = it; settings.highlightBorderSize = it.toInt(); markCustom() }
-                Spacer(modifier = Modifier.height(4.dp))
-                SettingSlider("Corner Rounding", keyRounding, 0f, 24f, "dp") { keyRounding = it; settings.keyRounding = it.toInt(); markCustom() }
-
-                Spacer(modifier = Modifier.height(8.dp))
-                SectionLabel("Key Colors")
-                Text("Primary (letters)", color = TextSecondary, fontSize = 9.sp)
-                DarkColorPicker(selected = settings.keyColor, onSelected = { settings.keyColor = it; markCustom() })
-                Spacer(modifier = Modifier.height(4.dp))
-                Text("Secondary (numbers, actions)", color = TextSecondary, fontSize = 9.sp)
-                DarkColorPicker(selected = settings.secondaryKeyColor, onSelected = { settings.secondaryKeyColor = it; markCustom() })
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-            GlassCard {
-                SectionLabel("Font")
-                var selectedFont by remember { mutableStateOf(settings.fontFamily) }
-                var fontScale by remember { mutableFloatStateOf(settings.fontScale.toFloat()) }
-                DropdownSetting(
-                    options = listOf(
-                        "default" to "Default (Sans Medium)",
-                        "sans-serif-light" to "Sans Light",
-                        "sans-serif-condensed" to "Sans Condensed",
-                        "sans-serif-thin" to "Sans Thin",
-                        "monospace" to "Monospace",
-                        "serif" to "Serif",
-                        "casual" to "Casual",
-                        "cursive" to "Cursive"
-                    ),
-                    selected = selectedFont,
-                    onSelected = { selectedFont = it; settings.fontFamily = it }
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                SettingSlider("Font Scale", fontScale, 50f, 200f, "%") { fontScale = it; settings.fontScale = it.toInt() }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
+        }
+        Column(modifier = Modifier.weight(1f)) {
             GlassCard {
                 SectionLabel("Behavior")
                 SettingSwitch("Word Suggestions", suggestions) { suggestions = it; settings.suggestionsEnabled = it }
-                Spacer(modifier = Modifier.height(6.dp))
                 SettingSwitch("Number Row", numberRow) { numberRow = it; settings.numberRowEnabled = it }
-                Spacer(modifier = Modifier.height(6.dp))
                 SettingSwitch("Show Hint Bar", showHintBar) { showHintBar = it; settings.showHintBar = it }
-                Spacer(modifier = Modifier.height(6.dp))
                 SettingSwitch("Horizontal Wrap", hWrap) { hWrap = it; settings.horizontalWrap = it }
-                Spacer(modifier = Modifier.height(6.dp))
                 SettingSwitch("Vertical Wrap", vWrap) { vWrap = it; settings.verticalWrap = it }
-                Spacer(modifier = Modifier.height(8.dp))
-                SettingSlider("D-pad Speed", dpadSpeed, 30f, 200f, "ms") {
-                    dpadSpeed = it; settings.dpadRepeatRate = it.toInt()
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                ResetWordHistoryButton(context)
+                Spacer(modifier = Modifier.height(4.dp))
+                SettingSlider("D-pad Speed", dpadSpeed, 30f, 200f, "ms") { dpadSpeed = it; settings.dpadRepeatRate = it.toInt() }
             }
         }
+    }
+    Spacer(modifier = Modifier.height(10.dp))
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        GlassCard(modifier = Modifier.weight(1f)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
+                SectionLabel("Keyboard Preview")
+                Switch(checked = showPreview, onCheckedChange = { onPreviewChanged(it) },
+                    colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = AccentColor,
+                        uncheckedThumbColor = TextSecondary, uncheckedTrackColor = SurfaceColor),
+                    modifier = Modifier.height(18.dp))
+            }
+        }
+        GlassCard(modifier = Modifier.weight(1f)) {
+            ResetWordHistoryButton(context)
+        }
+    }
+}
 
-        // Column 2
+@Composable
+private fun SettingsProportions(settings: KeyboardSettings, markCustom: () -> Unit) {
+    var kbHeight by remember { mutableFloatStateOf(settings.keyboardHeightPercent.toFloat()) }
+    var kbWidth by remember { mutableFloatStateOf(settings.keyboardWidthPercent.toFloat()) }
+    var bgOpacity by remember { mutableFloatStateOf(settings.bgOpacity.toFloat()) }
+    var marginX by remember { mutableFloatStateOf(settings.marginX.toFloat()) }
+    var marginY by remember { mutableFloatStateOf(settings.marginY.toFloat()) }
+    var anchorX by remember { mutableIntStateOf(settings.anchorX) }
+    var anchorY by remember { mutableIntStateOf(settings.anchorY) }
+
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Column(modifier = Modifier.weight(1f)) {
             GlassCard {
                 SectionLabel("Size")
-                SettingSlider("Height", kbHeight, 20f, 60f, "%") {
-                    kbHeight = it; settings.keyboardHeightPercent = it.toInt()
-                }
-                SettingSlider("Width", kbWidth, 50f, 100f, "%") {
-                    kbWidth = it; settings.keyboardWidthPercent = it.toInt()
-                }
-                SettingSlider("Opacity", bgOpacity, 0f, 100f, "%") {
-                    bgOpacity = it; settings.bgOpacity = it.toInt(); markCustom()
-                }
+                SettingSlider("Height", kbHeight, 20f, 60f, "%") { kbHeight = it; settings.keyboardHeightPercent = it.toInt() }
+                SettingSlider("Width", kbWidth, 50f, 100f, "%") { kbWidth = it; settings.keyboardWidthPercent = it.toInt() }
+                SettingSlider("Opacity", bgOpacity, 0f, 100f, "%") { bgOpacity = it; settings.bgOpacity = it.toInt(); markCustom() }
             }
-
-            Spacer(modifier = Modifier.height(10.dp))
+        }
+        Column(modifier = Modifier.weight(1f)) {
             GlassCard {
                 SectionLabel("Position")
                 Text("X Anchor", color = TextSecondary, fontSize = 10.sp)
                 Spacer(modifier = Modifier.height(4.dp))
-                AnchorPicker(
-                    options = listOf("Left", "Center", "Right"),
-                    selected = anchorX,
-                    onSelected = { anchorX = it; settings.anchorX = it }
-                )
+                AnchorPicker(options = listOf("Left", "Center", "Right"), selected = anchorX, onSelected = { anchorX = it; settings.anchorX = it })
                 Spacer(modifier = Modifier.height(8.dp))
                 Text("Y Anchor", color = TextSecondary, fontSize = 10.sp)
                 Spacer(modifier = Modifier.height(4.dp))
-                AnchorPicker(
-                    options = listOf("Top", "Center", "Bottom"),
-                    selected = anchorY,
-                    onSelected = { anchorY = it; settings.anchorY = it }
-                )
+                AnchorPicker(options = listOf("Top", "Center", "Bottom"), selected = anchorY, onSelected = { anchorY = it; settings.anchorY = it })
                 Spacer(modifier = Modifier.height(8.dp))
-                SettingSlider("X Margin", marginX, 0f, 20f, "%") {
-                    marginX = it; settings.marginX = it.toInt()
-                }
-                SettingSlider("Y Margin", marginY, 0f, 20f, "%") {
-                    marginY = it; settings.marginY = it.toInt()
-                }
+                SettingSlider("X Margin", marginX, 0f, 20f, "%") { marginX = it; settings.marginX = it.toInt() }
+                SettingSlider("Y Margin", marginY, 0f, 20f, "%") { marginY = it; settings.marginY = it.toInt() }
             }
         }
     }
+}
 
-    // Action bar buttons section
-    Spacer(modifier = Modifier.height(10.dp))
+@Composable
+private fun SettingsColors(settings: KeyboardSettings, markCustom: () -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(modifier = Modifier.weight(1f)) {
+            GlassCard {
+                SectionLabel("Accent Color")
+                ColorPicker(selected = settings.accentColor, onSelected = { settings.accentColor = it; markCustom() })
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            GlassCard {
+                SectionLabel("Background Opacity")
+                var bgOpacity by remember { mutableFloatStateOf(settings.bgOpacity.toFloat()) }
+                SettingSlider("Opacity", bgOpacity, 0f, 100f, "%") { bgOpacity = it; settings.bgOpacity = it.toInt(); markCustom() }
+            }
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            GlassCard {
+                SectionLabel("Key Colors")
+                Text("Primary (letters)", color = TextSecondary, fontSize = 9.sp)
+                DarkColorPicker(selected = settings.keyColor, onSelected = { settings.keyColor = it; markCustom() })
+                Spacer(modifier = Modifier.height(6.dp))
+                Text("Secondary (numbers, actions)", color = TextSecondary, fontSize = 9.sp)
+                DarkColorPicker(selected = settings.secondaryKeyColor, onSelected = { settings.secondaryKeyColor = it; markCustom() })
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsEffects(settings: KeyboardSettings, markCustom: () -> Unit) {
+    var highlightStyle by remember { mutableStateOf(settings.highlightStyle) }
+    var clickAnimation by remember { mutableStateOf(settings.clickAnimation) }
+    var navEffect by remember { mutableStateOf(settings.navEffect) }
+    var highlightBorderSize by remember { mutableFloatStateOf(settings.highlightBorderSize.toFloat()) }
+
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(modifier = Modifier.weight(1f)) {
+            GlassCard {
+                SectionLabel("Highlight Style")
+                DropdownSetting(options = listOf("border" to "Border", "fill" to "Fill", "glow" to "Glow", "none" to "None"),
+                    selected = highlightStyle, onSelected = { highlightStyle = it; settings.highlightStyle = it; markCustom() })
+                Spacer(modifier = Modifier.height(6.dp))
+                SettingSlider("Border Size", highlightBorderSize, 1f, 8f, "dp") { highlightBorderSize = it; settings.highlightBorderSize = it.toInt(); markCustom() }
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            GlassCard {
+                SectionLabel("Click Animation")
+                DropdownSetting(options = listOf("fill" to "Fill", "pop" to "Pop", "flash" to "Flash", "none" to "None"),
+                    selected = clickAnimation, onSelected = { clickAnimation = it; settings.clickAnimation = it; markCustom() })
+            }
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            GlassCard {
+                SectionLabel("Navigation Effect")
+                DropdownSetting(options = listOf("wind" to "Wind Particles", "slide" to "Sliding Border", "ripple" to "Ripple", "trail" to "Ghost Trail", "none" to "None"),
+                    selected = navEffect, onSelected = { navEffect = it; settings.navEffect = it; markCustom() })
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsFont(settings: KeyboardSettings) {
+    var selectedFont by remember { mutableStateOf(settings.fontFamily) }
+    var fontScale by remember { mutableFloatStateOf(settings.fontScale.toFloat()) }
+
     GlassCard {
-        SectionLabel("On-Screen Buttons")
-        var showSpacebar by remember { mutableStateOf(settings.showSpacebar) }
-        var showEnter by remember { mutableStateOf(settings.showEnterBtn) }
-        var showBackspace by remember { mutableStateOf(settings.showBackspaceBtn) }
-        var showArrows by remember { mutableStateOf(settings.showArrowKeys) }
-        var showVoice by remember { mutableStateOf(settings.showVoiceBtn) }
-        var showSymbols by remember { mutableStateOf(settings.showSymbolsBtn) }
-        var showDialpad by remember { mutableStateOf(settings.showDialpadBtn) }
-        var showCopy by remember { mutableStateOf(settings.showCopyBtn) }
-        var showPaste by remember { mutableStateOf(settings.showPasteBtn) }
+        SectionLabel("Font Family")
+        DropdownSetting(
+            options = listOf("default" to "Default (Sans Medium)", "sans-serif-light" to "Sans Light",
+                "sans-serif-condensed" to "Sans Condensed", "sans-serif-thin" to "Sans Thin",
+                "monospace" to "Monospace", "serif" to "Serif", "casual" to "Casual", "cursive" to "Cursive"),
+            selected = selectedFont, onSelected = { selectedFont = it; settings.fontFamily = it })
+        Spacer(modifier = Modifier.height(6.dp))
+        SettingSlider("Font Scale", fontScale, 50f, 200f, "%") { fontScale = it; settings.fontScale = it.toInt() }
+    }
+}
 
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Column(modifier = Modifier.weight(1f)) {
+@Composable
+private fun SettingsKeys(settings: KeyboardSettings, markCustom: () -> Unit) {
+    var keyRounding by remember { mutableFloatStateOf(settings.keyRounding.toFloat()) }
+
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(modifier = Modifier.weight(1f)) {
+            GlassCard {
+                SectionLabel("Key Style")
+                SettingSlider("Corner Rounding", keyRounding, 0f, 24f, "dp") { keyRounding = it; settings.keyRounding = it.toInt(); markCustom() }
+            }
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            GlassCard {
+                SectionLabel("On-Screen Buttons")
+                var showSpacebar by remember { mutableStateOf(settings.showSpacebar) }
+                var showEnter by remember { mutableStateOf(settings.showEnterBtn) }
+                var showBackspace by remember { mutableStateOf(settings.showBackspaceBtn) }
+                var showArrows by remember { mutableStateOf(settings.showArrowKeys) }
+                var showVoice by remember { mutableStateOf(settings.showVoiceBtn) }
+                var showSymbols by remember { mutableStateOf(settings.showSymbolsBtn) }
+                var showDialpad by remember { mutableStateOf(settings.showDialpadBtn) }
+                var showCopy by remember { mutableStateOf(settings.showCopyBtn) }
+                var showPaste by remember { mutableStateOf(settings.showPasteBtn) }
+
                 SettingSwitch("Spacebar", showSpacebar) { showSpacebar = it; settings.showSpacebar = it }
                 SettingSwitch("Enter", showEnter) { showEnter = it; settings.showEnterBtn = it }
                 SettingSwitch("Backspace", showBackspace) { showBackspace = it; settings.showBackspaceBtn = it }
                 SettingSwitch("Arrow Keys", showArrows) { showArrows = it; settings.showArrowKeys = it }
-                SettingSwitch("Copy", showCopy) { showCopy = it; settings.showCopyBtn = it }
-            }
-            Column(modifier = Modifier.weight(1f)) {
                 SettingSwitch("Voice", showVoice) { showVoice = it; settings.showVoiceBtn = it }
                 SettingSwitch("Symbols", showSymbols) { showSymbols = it; settings.showSymbolsBtn = it }
                 SettingSwitch("Dialpad", showDialpad) { showDialpad = it; settings.showDialpadBtn = it }
+                SettingSwitch("Copy", showCopy) { showCopy = it; settings.showCopyBtn = it }
                 SettingSwitch("Paste", showPaste) { showPaste = it; settings.showPasteBtn = it }
             }
         }
     }
-    // Keyboard Preview toggle (overlay rendered in parent)
-    Spacer(modifier = Modifier.height(10.dp))
-    GlassCard {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically) {
-            SectionLabel("Keyboard Preview")
-            Switch(
-                checked = showPreview, onCheckedChange = { onPreviewChanged(it) },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color.White, checkedTrackColor = AccentColor,
-                    uncheckedThumbColor = TextSecondary, uncheckedTrackColor = SurfaceColor
-                ),
-                modifier = Modifier.height(18.dp)
-            )
-        }
-        Text("Shows keyboard overlay at real position", color = TextSecondary, fontSize = 8.sp)
-    }
-    } // close Column wrapper
 }
 
 @Composable

@@ -343,7 +343,7 @@ class PS5KeyboardLayout @JvmOverloads constructor(
             alpha = ((1f - t * 0.3f) * 255).toInt()
         }
         canvas.drawRoundRect(curRect, cr, cr, bp)
-        postInvalidateDelayed(16)
+        if (t < 1f) postInvalidateDelayed(16) else slideActive = false
     }
 
     private fun drawRippleEffect(canvas: Canvas) {
@@ -509,7 +509,6 @@ class PS5KeyboardLayout @JvmOverloads constructor(
                             canvas.drawRoundRect(rect, cr, cr, cp)
                         }
                     }
-                    postInvalidateDelayed(16) // keep animating
                 }
 
                 var displayChar = chars[col]
@@ -542,16 +541,20 @@ class PS5KeyboardLayout @JvmOverloads constructor(
             }
         }
 
+        // Click animation tick — single invalidation
+        if (clickAnimRow >= -1 && System.currentTimeMillis() - clickAnimStart < clickAnimDuration) {
+            postInvalidateDelayed(16)
+        }
+
         // --- Hint bar ---
         if (settings.showHintBar) drawHintBar(canvas, w, h, hintH, sidePad)
 
-        // Wind particles on top of everything
-        // Navigation effects
+        // Navigation effects (only draw when active)
         when (settings.navEffect) {
-            "wind" -> drawWindParticles(canvas)
-            "slide" -> drawSlideEffect(canvas)
-            "ripple" -> drawRippleEffect(canvas)
-            "trail" -> drawTrailEffect(canvas)
+            "wind" -> if (windParticles.isNotEmpty()) drawWindParticles(canvas)
+            "slide" -> if (slideActive) drawSlideEffect(canvas)
+            "ripple" -> if (System.currentTimeMillis() - rippleStart < rippleDuration) drawRippleEffect(canvas)
+            "trail" -> if (trailPoints.isNotEmpty()) drawTrailEffect(canvas)
         }
     }
 
