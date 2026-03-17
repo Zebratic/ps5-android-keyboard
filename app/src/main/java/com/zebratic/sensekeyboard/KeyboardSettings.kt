@@ -114,10 +114,30 @@ class KeyboardSettings(context: Context) {
         get() = prefs.getInt("font_scale", 100) // percentage
         set(v) = prefs.edit().putInt("font_scale", v.coerceIn(50, 200)).apply()
 
-    // Border-only highlight (vs filled key)
-    var borderHighlight: Boolean
-        get() = prefs.getBoolean("border_highlight", true)
-        set(v) = prefs.edit().putBoolean("border_highlight", v).apply()
+    // Highlight style: "none", "border", "fill", "glow"
+    var highlightStyle: String
+        get() = prefs.getString("highlight_style", "border") ?: "border"
+        set(v) = prefs.edit().putString("highlight_style", v).apply()
+
+    // Key highlight border width (dp)
+    var highlightBorderSize: Int
+        get() = prefs.getInt("highlight_border_size", 3)
+        set(v) = prefs.edit().putInt("highlight_border_size", v.coerceIn(1, 8)).apply()
+
+    // Key corner rounding (dp)
+    var keyRounding: Int
+        get() = prefs.getInt("key_rounding", 6)
+        set(v) = prefs.edit().putInt("key_rounding", v.coerceIn(0, 24)).apply()
+
+    // Click animation: "none", "fill", "pop", "flash"
+    var clickAnimation: String
+        get() = prefs.getString("click_animation", "fill") ?: "fill"
+        set(v) = prefs.edit().putString("click_animation", v).apply()
+
+    // Visual style (design, not colors): "standard", "rounded", "minimal", "retro"
+    var visualStyle: String
+        get() = prefs.getString("visual_style", "standard") ?: "standard"
+        set(v) = prefs.edit().putString("visual_style", v).apply()
 
     // Action bar buttons
     var showSpacebar: Boolean
@@ -155,38 +175,9 @@ class KeyboardSettings(context: Context) {
         get() = prefs.getString("active_preset", "ps5") ?: "ps5"
         set(v) = prefs.edit().putString("active_preset", v).apply()
 
-    // Presets
+    // Presets — only change visual style design, NOT colors
     fun applyPreset(preset: String) {
         activePreset = preset
-        when (preset) {
-            "ps5" -> {
-                accentColor = Color.parseColor("#0070D1")
-                bgColor = Color.parseColor("#1A1D2E")
-                keyColor = Color.parseColor("#2A2D3E")
-                textColor = Color.WHITE
-                bgOpacity = 90
-            }
-            "dark" -> {
-                accentColor = Color.parseColor("#BB86FC")
-                bgColor = Color.parseColor("#121212")
-                keyColor = Color.parseColor("#1E1E1E")
-                textColor = Color.WHITE
-                bgOpacity = 95
-            }
-            "xbox" -> {
-                accentColor = Color.parseColor("#107C10")
-                bgColor = Color.parseColor("#1A1A2E")
-                keyColor = Color.parseColor("#2D2D44")
-                textColor = Color.WHITE
-                bgOpacity = 90
-            }
-            "steam" -> {
-                accentColor = Color.parseColor("#1A9FFF")
-                bgColor = Color.parseColor("#1B2838")
-                keyColor = Color.parseColor("#2A475E")
-                textColor = Color.parseColor("#C7D5E0")
-                bgOpacity = 92
-            }
-        }
+        visualStyle = preset
     }
 }

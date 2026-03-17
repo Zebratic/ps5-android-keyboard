@@ -33,6 +33,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.compose.foundation.focusable
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.onKeyEvent
@@ -295,7 +296,10 @@ fun SettingsTab() {
     var vibrateIntensity by remember { mutableFloatStateOf(settings.vibrateIntensity.toFloat()) }
     var showHintBar by remember { mutableStateOf(settings.showHintBar) }
     var numberRow by remember { mutableStateOf(settings.numberRowEnabled) }
-    var borderHighlight by remember { mutableStateOf(settings.borderHighlight) }
+    var highlightStyle by remember { mutableStateOf(settings.highlightStyle) }
+    var highlightBorderSize by remember { mutableFloatStateOf(settings.highlightBorderSize.toFloat()) }
+    var keyRounding by remember { mutableFloatStateOf(settings.keyRounding.toFloat()) }
+    var clickAnimation by remember { mutableStateOf(settings.clickAnimation) }
     var hWrap by remember { mutableStateOf(settings.horizontalWrap) }
     var vWrap by remember { mutableStateOf(settings.verticalWrap) }
     var dpadSpeed by remember { mutableFloatStateOf(settings.dpadRepeatRate.toFloat()) }
@@ -303,6 +307,7 @@ fun SettingsTab() {
     Column {
     // Inline test input
     val focusManager = LocalFocusManager.current
+    val settingsFocusTarget = remember { FocusRequester() }
     var testText by remember { mutableStateOf("") }
     OutlinedTextField(
         value = testText,
@@ -311,7 +316,8 @@ fun SettingsTab() {
             .onKeyEvent { event ->
                 if (event.type == androidx.compose.ui.input.key.KeyEventType.KeyDown &&
                     (event.key == androidx.compose.ui.input.key.Key.Back || event.key == androidx.compose.ui.input.key.Key.ButtonB)) {
-                    focusManager.clearFocus(); true
+                    try { settingsFocusTarget.requestFocus() } catch (_: Exception) { focusManager.clearFocus() }
+                    true
                 } else false
             },
         placeholder = { Text("Test keyboard here...", color = TextSecondary.copy(alpha = 0.4f), fontSize = 11.sp) },
@@ -329,7 +335,7 @@ fun SettingsTab() {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         // Column 1
         Column(modifier = Modifier.weight(1f)) {
-            GlassCard {
+            GlassCard(modifier = Modifier.focusRequester(settingsFocusTarget)) {
                 SectionLabel("Keyboard Layout")
                 DropdownSetting(
                     options = KeyboardLayouts.ALL_LETTER_LAYOUTS.map { it.id to it.name },
@@ -340,7 +346,7 @@ fun SettingsTab() {
                 Spacer(modifier = Modifier.height(10.dp))
                 SectionLabel("Visual Style")
                 DropdownSetting(
-                    options = listOf("ps5" to "PS5 Blue", "dark" to "Dark", "xbox" to "Xbox Green", "steam" to "Steam"),
+                    options = listOf("standard" to "Standard", "rounded" to "Rounded", "minimal" to "Minimal", "retro" to "Retro"),
                     selected = selectedPreset,
                     onSelected = { selectedPreset = it; settings.applyPreset(it) }
                 )
@@ -351,6 +357,30 @@ fun SettingsTab() {
                     selected = settings.accentColor,
                     onSelected = { settings.accentColor = it }
                 )
+
+                Spacer(modifier = Modifier.height(10.dp))
+                SectionLabel("Highlight Style")
+                DropdownSetting(
+                    options = listOf("border" to "Border", "fill" to "Fill", "glow" to "Glow", "none" to "None"),
+                    selected = highlightStyle,
+                    onSelected = { highlightStyle = it; settings.highlightStyle = it }
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+                SectionLabel("Click Animation")
+                DropdownSetting(
+                    options = listOf("fill" to "Fill", "pop" to "Pop", "flash" to "Flash", "none" to "None"),
+                    selected = clickAnimation,
+                    onSelected = { clickAnimation = it; settings.clickAnimation = it }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+            GlassCard {
+                SectionLabel("Key Appearance")
+                SettingSlider("Border Size", highlightBorderSize, 1f, 8f, "dp") { highlightBorderSize = it; settings.highlightBorderSize = it.toInt() }
+                Spacer(modifier = Modifier.height(4.dp))
+                SettingSlider("Corner Rounding", keyRounding, 0f, 24f, "dp") { keyRounding = it; settings.keyRounding = it.toInt() }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -383,7 +413,7 @@ fun SettingsTab() {
                 Spacer(modifier = Modifier.height(6.dp))
                 SettingSwitch("Number Row", numberRow) { numberRow = it; settings.numberRowEnabled = it }
                 Spacer(modifier = Modifier.height(6.dp))
-                SettingSwitch("Border Highlight", borderHighlight) { borderHighlight = it; settings.borderHighlight = it }
+                // Border Highlight replaced by Highlight Style dropdown
                 Spacer(modifier = Modifier.height(6.dp))
                 SettingSwitch("Vibrate on Click", vibrateClick) { vibrateClick = it; settings.vibrateOnClick = it }
                 Spacer(modifier = Modifier.height(6.dp))
@@ -555,14 +585,33 @@ fun ColorPicker(selected: Int, onSelected: (Int) -> Unit) {
     ) {
         colors.forEach { (color, _) ->
             val isSelected = selected == color
+            var isFocused by remember { mutableStateOf(false) }
             Box(
                 modifier = Modifier
-                    .size(20.dp)
+                    .size(22.dp)
+                    .onFocusChanged { isFocused = it.isFocused }
+                    .focusable()
+                    .onKeyEvent { event ->
+                        if (event.type == androidx.compose.ui.input.key.KeyEventType.KeyDown &&
+                            (event.key == androidx.compose.ui.input.key.Key.DirectionCenter ||
+                             event.key == androidx.compose.ui.input.key.Key.Enter ||
+                             event.key == androidx.compose.ui.input.key.Key.ButtonA)) {
+                            onSelected(color); true
+                        } else false
+                    }
                     .clip(RoundedCornerShape(4.dp))
                     .background(Color(color.toLong() or 0xFF000000L))
                     .border(
-                        if (isSelected) 2.dp else 0.dp,
-                        if (isSelected) Color.White else Color.Transparent,
+                        when {
+                            isSelected -> 3.dp
+                            isFocused -> 2.dp
+                            else -> 0.dp
+                        },
+                        when {
+                            isSelected -> Color.White
+                            isFocused -> AccentColor
+                            else -> Color.Transparent
+                        },
                         RoundedCornerShape(4.dp)
                     )
                     .clickable { onSelected(color) }

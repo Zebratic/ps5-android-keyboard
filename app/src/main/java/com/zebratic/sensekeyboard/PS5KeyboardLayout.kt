@@ -29,6 +29,10 @@ class PS5KeyboardLayout @JvmOverloads constructor(
     // State
     private var focusRow = -1 // -1 = suggestion row, 0+ = key rows
     private var focusCol = 0
+    private var clickAnimRow = -2
+    private var clickAnimCol = -2
+    private var clickAnimStart = 0L
+    private val clickAnimDuration = 150L
     private var shifted = false
     private var symbolMode = false
     private var dialpadMode = false
@@ -288,7 +292,7 @@ class PS5KeyboardLayout @JvmOverloads constructor(
         val keyW = (keyAreaW - keySpacing * (maxCols - 1)) / maxCols
         val keyH = (keyAreaH - keySpacing * (rows - 1)) / rows
         val keyStartY = topPad + suggestH
-        val cr = 6f * dp
+        val cr = settings.keyRounding * dp
 
         val fontMul = settings.fontScale / 100f
         textPaint.textSize = keyH * 0.38f * fontMul
@@ -306,23 +310,74 @@ class PS5KeyboardLayout @JvmOverloads constructor(
                 val y = keyStartY + row * (keyH + keySpacing)
                 val rect = RectF(x, y, x + keyW, y + keyH)
 
-                if (isFocused) {
-                    val gr = RectF(rect.left - 3*dp, rect.top - 3*dp, rect.right + 3*dp, rect.bottom + 3*dp)
-                    canvas.drawRoundRect(gr, cr + 2*dp, cr + 2*dp, glowPaint)
+                // Click animation state
+                val isClicked = row == clickAnimRow && col == clickAnimCol
+                val clickProgress = if (isClicked) {
+                    val elapsed = System.currentTimeMillis() - clickAnimStart
+                    if (elapsed < clickAnimDuration) {
+                        1f - (elapsed.toFloat() / clickAnimDuration)
+                    } else { clickAnimRow = -2; 0f }
+                } else 0f
+
+                if (isFocused && settings.highlightStyle != "none") {
+                    val bw = settings.highlightBorderSize * dp
+                    val gr = RectF(rect.left - bw, rect.top - bw, rect.right + bw, rect.bottom + bw)
+                    canvas.drawRoundRect(gr, cr + bw, cr + bw, glowPaint)
                 }
 
                 // Key background
                 canvas.drawRoundRect(rect, cr, cr, keyPaint)
+
+                // Highlight
                 if (isFocused) {
-                    if (settings.borderHighlight) {
-                        // Border-only highlight
-                        val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                            color = focusPaint.color; style = Paint.Style.STROKE; strokeWidth = 2.5f * dp
+                    when (settings.highlightStyle) {
+                        "border" -> {
+                            val bp = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                                color = focusPaint.color; style = Paint.Style.STROKE
+                                strokeWidth = settings.highlightBorderSize * dp
+                            }
+                            canvas.drawRoundRect(rect, cr, cr, bp)
                         }
-                        canvas.drawRoundRect(rect, cr, cr, borderPaint)
-                    } else {
-                        canvas.drawRoundRect(rect, cr, cr, focusPaint)
+                        "fill" -> canvas.drawRoundRect(rect, cr, cr, focusPaint)
+                        "glow" -> {
+                            val gp = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                                color = focusPaint.color; alpha = 100
+                            }
+                            val bw = settings.highlightBorderSize * dp
+                            val gr2 = RectF(rect.left - bw*2, rect.top - bw*2, rect.right + bw*2, rect.bottom + bw*2)
+                            canvas.drawRoundRect(gr2, cr + bw*2, cr + bw*2, gp)
+                            canvas.drawRoundRect(rect, cr, cr, focusPaint)
+                        }
+                        // "none" — no highlight
                     }
+                }
+
+                // Click animation overlay
+                if (clickProgress > 0f) {
+                    when (settings.clickAnimation) {
+                        "fill" -> {
+                            val cp = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                                color = focusPaint.color; alpha = (clickProgress * 200).toInt()
+                            }
+                            canvas.drawRoundRect(rect, cr, cr, cp)
+                        }
+                        "pop" -> {
+                            val scale = 1f + clickProgress * 0.15f
+                            val pw = keyW * scale; val ph = keyH * scale
+                            val pr = RectF(x + (keyW - pw)/2, y + (keyH - ph)/2, x + (keyW + pw)/2, y + (keyH + ph)/2)
+                            val cp = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                                color = focusPaint.color; alpha = (clickProgress * 150).toInt()
+                            }
+                            canvas.drawRoundRect(pr, cr, cr, cp)
+                        }
+                        "flash" -> {
+                            val cp = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                                color = android.graphics.Color.WHITE; alpha = (clickProgress * 180).toInt()
+                            }
+                            canvas.drawRoundRect(rect, cr, cr, cp)
+                        }
+                    }
+                    postInvalidateDelayed(16) // keep animating
                 }
 
                 var displayChar = chars[col]
@@ -444,7 +499,7 @@ class PS5KeyboardLayout @JvmOverloads constructor(
         val btnH = barH * 0.7f
         val btnY = y + (barH - btnH) / 2
         val btnW = (areaW - spacing * (btns.size - 1)) / btns.size
-        val cr = 6f * dp
+        val cr = settings.keyRounding * dp
         val actionRow = rowCount() // action bar is the row after keys
 
         actionBtnPaint.textSize = btnH * 0.4f
@@ -456,13 +511,20 @@ class PS5KeyboardLayout @JvmOverloads constructor(
 
             canvas.drawRoundRect(rect, cr, cr, keyPaint)
             if (isFocused) {
-                if (settings.borderHighlight) {
-                    val bp = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                        color = focusPaint.color; style = Paint.Style.STROKE; strokeWidth = 2.5f * dp
+                when (settings.highlightStyle) {
+                    "border" -> {
+                        val bp = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                            color = focusPaint.color; style = Paint.Style.STROKE
+                            strokeWidth = settings.highlightBorderSize * dp
+                        }
+                        canvas.drawRoundRect(rect, cr, cr, bp)
                     }
-                    canvas.drawRoundRect(rect, cr, cr, bp)
-                } else {
-                    canvas.drawRoundRect(rect, cr, cr, focusPaint)
+                    "fill" -> canvas.drawRoundRect(rect, cr, cr, focusPaint)
+                    "glow" -> {
+                        val gp = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = focusPaint.color; alpha = 100 }
+                        canvas.drawRoundRect(rect, cr, cr, gp)
+                        canvas.drawRoundRect(rect, cr, cr, focusPaint)
+                    }
                 }
             }
 
@@ -558,6 +620,12 @@ class PS5KeyboardLayout @JvmOverloads constructor(
 
     fun pressCurrentKey() {
         vibrate("click")
+        // Trigger click animation
+        if (settings.clickAnimation != "none") {
+            clickAnimRow = focusRow; clickAnimCol = focusCol
+            clickAnimStart = System.currentTimeMillis()
+            invalidate()
+        }
         if (focusRow == -1) {
             // Suggestion row — pick word, stay on row, show next-word predictions
             if (focusCol < suggestions.size) {
