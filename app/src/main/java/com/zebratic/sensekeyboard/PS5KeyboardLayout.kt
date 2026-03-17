@@ -1034,4 +1034,36 @@ class PS5KeyboardLayout @JvmOverloads constructor(
     private fun updateSuggestions() {
         suggestions = wordSuggestions.getSuggestions(currentWord, 5)
     }
+
+    // --- Demo mode for preview ---
+    private var demoMode = false
+    private var demoRunnable: Runnable? = null
+
+    fun startDemo() {
+        if (demoMode) return
+        demoMode = true
+        focusRow = 1; focusCol = 4 // Start roughly center
+        demoRunnable = object : Runnable {
+            override fun run() {
+                if (!demoMode) return
+                val rand = Math.random()
+                when {
+                    rand < 0.15 -> pressCurrentKey() // occasional "press"
+                    rand < 0.35 -> moveFocus(1, 0)
+                    rand < 0.55 -> moveFocus(-1, 0)
+                    rand < 0.75 -> moveFocus(0, 1)
+                    else -> moveFocus(0, -1)
+                }
+                val delay = (300 + (Math.random() * 500)).toLong()
+                postDelayed(this, delay)
+            }
+        }
+        postDelayed(demoRunnable!!, 500)
+    }
+
+    fun stopDemo() {
+        demoMode = false
+        demoRunnable?.let { removeCallbacks(it) }
+        demoRunnable = null
+    }
 }

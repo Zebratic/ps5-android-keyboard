@@ -257,11 +257,15 @@ fun SenseKeyboardApp(onEnableKeyboard: () -> Unit, onSelectKeyboard: () -> Unit)
                                     reloadSettings()
                                     isFocusable = false
                                     isClickable = false
+                                    startDemo()
                                 }
                             },
                             modifier = Modifier.width((kbW / density).dp).height((kbH / density).dp),
                             update = { view -> view.reloadSettings(); view.invalidate() }
                         )
+                        DisposableEffect(refreshKey) {
+                            onDispose { /* demo stops when view is removed */ }
+                        }
                     }
                 }
             }
