@@ -8,9 +8,9 @@ A fully customizable on-screen keyboard designed for gamepad controllers on Andr
 
 ## 📥 Download
 
-**[⬇️ Download Latest APK](https://github.com/Zebratic/ps5-android-keyboard/releases/latest)**
+**[⬇️ Download Latest APK](https://github.com/Zebratic/SenseKeyboard/releases/latest)**
 
-Or grab it from the [Releases](https://github.com/Zebratic/ps5-android-keyboard/releases) page.
+Or grab it from the [Releases](https://github.com/Zebratic/SenseKeyboard/releases) page.
 
 The app has a built-in update checker — tap "Check for updates" on the Setup page to auto-download and install new versions.
 
@@ -54,7 +54,7 @@ The app has a built-in update checker — tap "Check for updates" on the Setup p
 
 ## 📱 Installation
 
-1. Download the APK from [Releases](https://github.com/Zebratic/ps5-android-keyboard/releases/latest)
+1. Download the APK from [Releases](https://github.com/Zebratic/SenseKeyboard/releases/latest)
 2. Install via ADB: `adb install SenseKeyboard.apk`
 3. Open the SenseKeyboard app on your TV
 4. Follow the 3-step setup: **Enable → Select → Type!**
@@ -62,8 +62,8 @@ The app has a built-in update checker — tap "Check for updates" on the Setup p
 ## 🛠️ Build from Source
 
 ```bash
-git clone https://github.com/Zebratic/ps5-android-keyboard.git
-cd ps5-android-keyboard
+git clone https://github.com/Zebratic/SenseKeyboard.git
+cd SenseKeyboard
 ./gradlew assembleDebug
 # APK at app/build/outputs/apk/debug/app-debug.apk
 ```

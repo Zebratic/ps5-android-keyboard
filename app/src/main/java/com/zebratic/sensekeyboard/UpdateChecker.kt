@@ -14,7 +14,7 @@ import java.net.URL
 data class UpdateInfo(val version: String, val downloadUrl: String, val isNewer: Boolean)
 
 object UpdateChecker {
-    private const val REPO = "Zebratic/ps5-android-keyboard"
+    private const val REPO = "Zebratic/SenseKeyboard"
     private const val API_URL = "https://api.github.com/repos/$REPO/releases/latest"
 
     suspend fun checkForUpdate(context: Context): UpdateInfo? = withContext(Dispatchers.IO) {

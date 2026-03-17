@@ -388,7 +388,7 @@ fun SetupTab(onEnableKeyboard: () -> Unit, onSelectKeyboard: () -> Unit) {
             Spacer(modifier = Modifier.width(8.dp))
             Text("·", color = TextSecondary, fontSize = 8.sp)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("github.com/Zebratic/ps5-android-keyboard", color = AccentColor, fontSize = 8.sp)
+            Text("github.com/Zebratic/SenseKeyboard", color = AccentColor, fontSize = 8.sp)
             Spacer(modifier = Modifier.weight(1f))
             UpdateButton(context)
         }
