@@ -284,7 +284,8 @@ fun SettingsTab() {
     val settings = remember { KeyboardSettings(context) }
 
     var selectedLayout by remember { mutableStateOf(settings.keyboardLayout) }
-    var selectedPreset by remember { mutableStateOf(settings.activePreset) }
+    var selectedPreset by remember { mutableStateOf(settings.detectPreset()) }
+    val markCustom = { settings.markCustomIfChanged(); selectedPreset = settings.activePreset }
     var bgOpacity by remember { mutableFloatStateOf(settings.bgOpacity.toFloat()) }
     var kbHeight by remember { mutableFloatStateOf(settings.keyboardHeightPercent.toFloat()) }
     var kbWidth by remember { mutableFloatStateOf(settings.keyboardWidthPercent.toFloat()) }
@@ -384,16 +385,31 @@ fun SettingsTab() {
                 Spacer(modifier = Modifier.height(10.dp))
                 SectionLabel("Visual Style")
                 DropdownSetting(
-                    options = listOf("standard" to "Standard", "rounded" to "Rounded", "minimal" to "Minimal", "retro" to "Retro"),
+                    options = listOf(
+                        "ps5" to "PS5", "xbox" to "Xbox", "steam" to "Steam",
+                        "minimal" to "Minimal", "rounded" to "Rounded", "retro" to "Retro",
+                        "custom" to "Custom"
+                    ),
                     selected = selectedPreset,
-                    onSelected = { selectedPreset = it; settings.applyPreset(it) }
+                    onSelected = {
+                        if (it != "custom") {
+                            settings.applyPreset(it)
+                            // Refresh all state vars
+                            highlightStyle = settings.highlightStyle
+                            highlightBorderSize = settings.highlightBorderSize.toFloat()
+                            keyRounding = settings.keyRounding.toFloat()
+                            clickAnimation = settings.clickAnimation
+                            bgOpacity = settings.bgOpacity.toFloat()
+                        }
+                        selectedPreset = it
+                    }
                 )
 
                 Spacer(modifier = Modifier.height(10.dp))
                 SectionLabel("Accent Color")
                 ColorPicker(
                     selected = settings.accentColor,
-                    onSelected = { settings.accentColor = it }
+                    onSelected = { settings.accentColor = it; markCustom() }
                 )
 
                 Spacer(modifier = Modifier.height(10.dp))
@@ -401,7 +417,7 @@ fun SettingsTab() {
                 DropdownSetting(
                     options = listOf("border" to "Border", "fill" to "Fill", "glow" to "Glow", "none" to "None"),
                     selected = highlightStyle,
-                    onSelected = { highlightStyle = it; settings.highlightStyle = it }
+                    onSelected = { highlightStyle = it; settings.highlightStyle = it; markCustom() }
                 )
 
                 Spacer(modifier = Modifier.height(10.dp))
@@ -409,7 +425,7 @@ fun SettingsTab() {
                 DropdownSetting(
                     options = listOf("fill" to "Fill", "pop" to "Pop", "flash" to "Flash", "none" to "None"),
                     selected = clickAnimation,
-                    onSelected = { clickAnimation = it; settings.clickAnimation = it }
+                    onSelected = { clickAnimation = it; settings.clickAnimation = it; markCustom() }
                 )
 
                 Spacer(modifier = Modifier.height(10.dp))
@@ -418,24 +434,24 @@ fun SettingsTab() {
                 DropdownSetting(
                     options = listOf("wind" to "Wind Particles", "slide" to "Sliding Border", "ripple" to "Ripple", "trail" to "Ghost Trail", "none" to "None"),
                     selected = navEffect,
-                    onSelected = { navEffect = it; settings.navEffect = it }
+                    onSelected = { navEffect = it; settings.navEffect = it; markCustom() }
                 )
             }
 
             Spacer(modifier = Modifier.height(10.dp))
             GlassCard {
                 SectionLabel("Key Appearance")
-                SettingSlider("Border Size", highlightBorderSize, 1f, 8f, "dp") { highlightBorderSize = it; settings.highlightBorderSize = it.toInt() }
+                SettingSlider("Border Size", highlightBorderSize, 1f, 8f, "dp") { highlightBorderSize = it; settings.highlightBorderSize = it.toInt(); markCustom() }
                 Spacer(modifier = Modifier.height(4.dp))
-                SettingSlider("Corner Rounding", keyRounding, 0f, 24f, "dp") { keyRounding = it; settings.keyRounding = it.toInt() }
+                SettingSlider("Corner Rounding", keyRounding, 0f, 24f, "dp") { keyRounding = it; settings.keyRounding = it.toInt(); markCustom() }
 
                 Spacer(modifier = Modifier.height(8.dp))
                 SectionLabel("Key Colors")
                 Text("Primary (letters)", color = TextSecondary, fontSize = 9.sp)
-                DarkColorPicker(selected = settings.keyColor, onSelected = { settings.keyColor = it })
+                DarkColorPicker(selected = settings.keyColor, onSelected = { settings.keyColor = it; markCustom() })
                 Spacer(modifier = Modifier.height(4.dp))
                 Text("Secondary (numbers, actions)", color = TextSecondary, fontSize = 9.sp)
-                DarkColorPicker(selected = settings.secondaryKeyColor, onSelected = { settings.secondaryKeyColor = it })
+                DarkColorPicker(selected = settings.secondaryKeyColor, onSelected = { settings.secondaryKeyColor = it; markCustom() })
             }
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -493,7 +509,7 @@ fun SettingsTab() {
                     kbWidth = it; settings.keyboardWidthPercent = it.toInt()
                 }
                 SettingSlider("Opacity", bgOpacity, 0f, 100f, "%") {
-                    bgOpacity = it; settings.bgOpacity = it.toInt()
+                    bgOpacity = it; settings.bgOpacity = it.toInt(); markCustom()
                 }
             }
 

@@ -181,39 +181,68 @@ class KeyboardSettings(context: Context) {
         get() = prefs.getString("active_preset", "ps5") ?: "ps5"
         set(v) = prefs.edit().putString("active_preset", v).apply()
 
-    // Presets — change visual design (shape, spacing, highlight) NOT colors
+    // Preset data class for comparison
+    data class PresetValues(
+        val keyRounding: Int, val highlightStyle: String, val highlightBorderSize: Int,
+        val clickAnimation: String, val navEffect: String, val bgOpacity: Int,
+        val accentColor: Int, val bgColor: Int, val keyColor: Int,
+        val secondaryKeyColor: Int, val textColor: Int
+    )
+
+    val PRESETS = mapOf(
+        "ps5" to PresetValues(6, "border", 3, "fill", "wind", 90,
+            Color.parseColor("#0070D1"), Color.parseColor("#1A1D2E"),
+            Color.parseColor("#2A2D3E"), Color.parseColor("#1E2133"), Color.WHITE),
+        "xbox" to PresetValues(8, "glow", 3, "pop", "ripple", 92,
+            Color.parseColor("#107C10"), Color.parseColor("#1A1A2E"),
+            Color.parseColor("#2D2D44"), Color.parseColor("#222238"), Color.WHITE),
+        "steam" to PresetValues(4, "border", 2, "fill", "slide", 90,
+            Color.parseColor("#1A9FFF"), Color.parseColor("#1B2838"),
+            Color.parseColor("#2A475E"), Color.parseColor("#1E3A50"), Color.parseColor("#C7D5E0")),
+        "minimal" to PresetValues(2, "border", 1, "none", "none", 95,
+            Color.parseColor("#FFFFFF"), Color.parseColor("#0A0A0A"),
+            Color.parseColor("#1A1A1A"), Color.parseColor("#111111"), Color.WHITE),
+        "rounded" to PresetValues(18, "glow", 4, "pop", "trail", 85,
+            Color.parseColor("#BB86FC"), Color.parseColor("#121212"),
+            Color.parseColor("#2A2A3A"), Color.parseColor("#1E1E2E"), Color.WHITE),
+        "retro" to PresetValues(0, "fill", 3, "flash", "none", 100,
+            Color.parseColor("#FF9F1C"), Color.parseColor("#0E0E0E"),
+            Color.parseColor("#222222"), Color.parseColor("#181818"), Color.parseColor("#FFD93D"))
+    )
+
     fun applyPreset(preset: String) {
+        val p = PRESETS[preset] ?: return
         activePreset = preset
-        visualStyle = preset
-        when (preset) {
-            "standard" -> {
-                keyRounding = 6
-                highlightStyle = "border"
-                highlightBorderSize = 3
-                clickAnimation = "fill"
-                bgOpacity = 90
-            }
-            "rounded" -> {
-                keyRounding = 16
-                highlightStyle = "glow"
-                highlightBorderSize = 4
-                clickAnimation = "pop"
-                bgOpacity = 85
-            }
-            "minimal" -> {
-                keyRounding = 4
-                highlightStyle = "border"
-                highlightBorderSize = 2
-                clickAnimation = "none"
-                bgOpacity = 95
-            }
-            "retro" -> {
-                keyRounding = 0
-                highlightStyle = "fill"
-                highlightBorderSize = 3
-                clickAnimation = "flash"
-                bgOpacity = 100
-            }
+        keyRounding = p.keyRounding
+        highlightStyle = p.highlightStyle
+        highlightBorderSize = p.highlightBorderSize
+        clickAnimation = p.clickAnimation
+        navEffect = p.navEffect
+        bgOpacity = p.bgOpacity
+        accentColor = p.accentColor
+        bgColor = p.bgColor
+        keyColor = p.keyColor
+        secondaryKeyColor = p.secondaryKeyColor
+        textColor = p.textColor
+    }
+
+    fun getCurrentValues(): PresetValues = PresetValues(
+        keyRounding, highlightStyle, highlightBorderSize,
+        clickAnimation, navEffect, bgOpacity,
+        accentColor, bgColor, keyColor, secondaryKeyColor, textColor
+    )
+
+    fun detectPreset(): String {
+        val current = getCurrentValues()
+        for ((name, values) in PRESETS) {
+            if (current == values) return name
+        }
+        return "custom"
+    }
+
+    fun markCustomIfChanged() {
+        if (activePreset != "custom" && detectPreset() != activePreset) {
+            activePreset = "custom"
         }
     }
 }
