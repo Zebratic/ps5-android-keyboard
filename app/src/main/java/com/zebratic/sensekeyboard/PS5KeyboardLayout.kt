@@ -182,10 +182,11 @@ class PS5KeyboardLayout @JvmOverloads constructor(
     }
 
     private val DIALPAD_ROWS = arrayOf(
-        "1 2 3",
-        "4 5 6",
-        "7 8 9",
-        "← 0 → ABC"
+        "7 8 9 /",
+        "4 5 6 *",
+        "1 2 3 -",
+        "0 . , +",
+        "← → ABC"
     )
 
     private fun getLetterLayout(): KeyboardLayoutDef = KeyboardLayouts.getById(currentLayoutId)
@@ -518,6 +519,12 @@ class PS5KeyboardLayout @JvmOverloads constructor(
                 var displayChar = chars[col]
                 if (shifted && !symbolMode && displayChar.length == 1 && displayChar[0].isLetter()) {
                     displayChar = displayChar.uppercase()
+                }
+                // Show shifted number row symbols
+                if (shifted && !symbolMode && displayChar.length == 1 && displayChar[0].isDigit()) {
+                    val shiftedNums = mapOf('1' to "!", '2' to "@", '3' to "#", '4' to "$", '5' to "%",
+                        '6' to "^", '7' to "&", '8' to "*", '9' to "(", '0' to ")")
+                    shiftedNums[displayChar[0]]?.let { displayChar = it }
                 }
 
                 // Shift key: fill when held, underline when locked
@@ -907,10 +914,19 @@ class PS5KeyboardLayout @JvmOverloads constructor(
             if (shifted && !symbolMode && !dialpadMode && c.length == 1 && c[0].isLetter()) {
                 c = c.uppercase()
             }
+            // Shift number row: ! @ # $ % ^ & * ( ) when shifted
+            if (shifted && !symbolMode && c.length == 1 && c[0].isDigit()) {
+                val shiftedNums = mapOf('1' to '!', '2' to '@', '3' to '#', '4' to '$', '5' to '%',
+                    '6' to '^', '7' to '&', '8' to '*', '9' to '(', '0' to ')')
+                val sc = shiftedNums[c[0]]
+                if (sc != null) c = sc.toString()
+            }
             if (c.length == 1) {
                 onCharInput?.invoke(c[0])
                 // Auto-release shift after typing (unless locked)
                 if (shifted && !shiftLocked) { shifted = false }
+                // Ensure shifted stays true when locked
+                if (shiftLocked) shifted = true
                 // Track current word for suggestions
                 if (c[0].isLetterOrDigit()) {
                     currentWord += c[0]
@@ -945,8 +961,8 @@ class PS5KeyboardLayout @JvmOverloads constructor(
     }
 
     fun setShift(on: Boolean) {
+        if (shiftLocked) return // don't override locked state from external calls
         shifted = on
-        if (!on) shiftLocked = false
         invalidate()
     }
 
