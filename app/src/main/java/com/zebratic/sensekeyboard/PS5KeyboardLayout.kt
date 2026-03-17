@@ -1,4 +1,4 @@
-package com.vaultkey.ps5keyboard
+package com.zebratic.sensekeyboard
 
 import android.content.Context
 import android.graphics.*
@@ -19,12 +19,15 @@ class PS5KeyboardLayout @JvmOverloads constructor(
     var onClose: (() -> Unit)? = null
     var onSpeech: (() -> Unit)? = null
     var onSuggestionPicked: ((String) -> Unit)? = null
+    var onCursorLeft: (() -> Unit)? = null
+    var onCursorRight: (() -> Unit)? = null
 
     // State
     private var focusRow = -1 // -1 = suggestion row, 0+ = key rows
     private var focusCol = 0
     private var shifted = false
     private var symbolMode = false
+    private var dialpadMode = false
     private var listening = false
     private var currentLayoutId = "us"
 
@@ -125,10 +128,23 @@ class PS5KeyboardLayout @JvmOverloads constructor(
             Color.red(settings.textColor), Color.green(settings.textColor), Color.blue(settings.textColor))
     }
 
+    private val DIALPAD_ROWS = arrayOf(
+        "1 2 3",
+        "4 5 6",
+        "7 8 9",
+        "← 0 →"
+    )
+
     private fun getLetterLayout(): KeyboardLayoutDef = KeyboardLayouts.getById(currentLayoutId)
 
     private fun getActiveRows(): Array<String> {
-        return if (symbolMode) KeyboardLayouts.SYMBOLS.rows else getLetterLayout().rows
+        if (dialpadMode) return DIALPAD_ROWS
+        val base = if (symbolMode) KeyboardLayouts.SYMBOLS.rows else getLetterLayout().rows
+        return if (settings.numberRowEnabled && !symbolMode) {
+            arrayOf("1 2 3 4 5 6 7 8 9 0") + base
+        } else {
+            base
+        }
     }
 
     private fun getChars(row: Int): List<String> = getActiveRows()[row].split(" ")
@@ -276,7 +292,19 @@ class PS5KeyboardLayout @JvmOverloads constructor(
                     canvas.drawRoundRect(gr, cr + 2*dp, cr + 2*dp, glowPaint)
                 }
 
-                canvas.drawRoundRect(rect, cr, cr, if (isFocused) focusPaint else keyPaint)
+                // Key background
+                canvas.drawRoundRect(rect, cr, cr, keyPaint)
+                if (isFocused) {
+                    if (settings.borderHighlight) {
+                        // Border-only highlight
+                        val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                            color = focusPaint.color; style = Paint.Style.STROKE; strokeWidth = 2.5f * dp
+                        }
+                        canvas.drawRoundRect(rect, cr, cr, borderPaint)
+                    } else {
+                        canvas.drawRoundRect(rect, cr, cr, focusPaint)
+                    }
+                }
 
                 var displayChar = chars[col]
                 if (shifted && !symbolMode && displayChar.length == 1 && displayChar[0].isLetter()) {
@@ -441,7 +469,10 @@ class PS5KeyboardLayout @JvmOverloads constructor(
         val chars = getChars(focusRow)
         if (focusCol < chars.size) {
             var c = chars[focusCol]
-            if (shifted && !symbolMode && c.length == 1 && c[0].isLetter()) {
+            // Handle special dialpad keys
+            if (c == "←") { onCursorLeft?.invoke(); return }
+            if (c == "→") { onCursorRight?.invoke(); return }
+            if (shifted && !symbolMode && !dialpadMode && c.length == 1 && c[0].isLetter()) {
                 c = c.uppercase()
             }
             if (c.length == 1) {
@@ -484,8 +515,16 @@ class PS5KeyboardLayout @JvmOverloads constructor(
         invalidate()
     }
 
+    fun toggleDialpad() {
+        dialpadMode = !dialpadMode
+        focusRow = 0
+        focusCol = 0
+        invalidate()
+    }
+
     fun toggleLayout() {
         symbolMode = !symbolMode
+        dialpadMode = false
         focusCol = focusCol.coerceAtMost(
             if (focusRow >= 0) colCount(focusRow) - 1 else focusCol
         )

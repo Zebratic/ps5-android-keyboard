@@ -1,4 +1,4 @@
-package com.vaultkey.ps5keyboard
+package com.zebratic.sensekeyboard
 
 import android.inputmethodservice.InputMethodService
 import android.view.KeyEvent
@@ -53,6 +53,16 @@ class PS5KeyboardService : InputMethodService() {
                     speechInput?.startListening()
                 }
             }
+            onCursorLeft = {
+                val ic = currentInputConnection
+                val ec = ic?.getExtractedText(android.view.inputmethod.ExtractedTextRequest(), 0)
+                if (ec != null) { val p = ec.selectionStart - 1; if (p >= 0) ic?.setSelection(p, p) }
+            }
+            onCursorRight = {
+                val ic = currentInputConnection
+                val ec = ic?.getExtractedText(android.view.inputmethod.ExtractedTextRequest(), 0)
+                if (ec != null) { val p = ec.selectionStart + 1; if (p <= (ec.text?.length ?: 0)) ic?.setSelection(p, p) }
+            }
             onSuggestionPicked = { word ->
                 val ic = currentInputConnection
                 if (ic != null) {
@@ -75,6 +85,7 @@ class PS5KeyboardService : InputMethodService() {
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
         isKeyboardVisible = true
+        keyboardView?.reloadSettings()
         DebugLogger.log("IME", "onStartInputView visible=true restarting=$restarting")
         keyboardView?.resetFocus()
         GamepadInput.reset()

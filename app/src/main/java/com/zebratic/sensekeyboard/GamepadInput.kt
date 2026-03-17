@@ -1,4 +1,4 @@
-package com.vaultkey.ps5keyboard
+package com.zebratic.sensekeyboard
 
 import android.view.InputEvent
 import android.view.KeyEvent

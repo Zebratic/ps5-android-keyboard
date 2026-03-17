@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.vaultkey.ps5keyboard"
+    namespace = "com.zebratic.sensekeyboard"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.vaultkey.ps5keyboard"
+        applicationId = "com.zebratic.sensekeyboard"
         minSdk = 21
         targetSdk = 34
         versionCode = 1

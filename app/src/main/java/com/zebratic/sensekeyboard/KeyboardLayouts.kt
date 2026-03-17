@@ -1,4 +1,4 @@
-package com.vaultkey.ps5keyboard
+package com.zebratic.sensekeyboard
 
 data class KeyboardLayoutDef(
     val id: String,

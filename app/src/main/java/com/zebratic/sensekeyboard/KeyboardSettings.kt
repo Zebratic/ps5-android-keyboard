@@ -1,4 +1,4 @@
-package com.vaultkey.ps5keyboard
+package com.zebratic.sensekeyboard
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -47,10 +47,23 @@ class KeyboardSettings(context: Context) {
         get() = prefs.getInt("kb_width_pct", 100)
         set(v) = prefs.edit().putInt("kb_width_pct", v.coerceIn(50, 100)).apply()
 
-    // Visual - Position (0=bottom, 50=center, 100=top)
-    var keyboardPosition: Int
-        get() = prefs.getInt("kb_position", 0)
-        set(v) = prefs.edit().putInt("kb_position", v.coerceIn(0, 100)).apply()
+    // Anchor position: 0=left/top, 1=center, 2=right/bottom
+    var anchorX: Int
+        get() = prefs.getInt("anchor_x", 1) // default center
+        set(v) = prefs.edit().putInt("anchor_x", v.coerceIn(0, 2)).apply()
+
+    var anchorY: Int
+        get() = prefs.getInt("anchor_y", 2) // default bottom
+        set(v) = prefs.edit().putInt("anchor_y", v.coerceIn(0, 2)).apply()
+
+    // Margins (px percentage of screen)
+    var marginX: Int
+        get() = prefs.getInt("margin_x", 0)
+        set(v) = prefs.edit().putInt("margin_x", v.coerceIn(0, 20)).apply()
+
+    var marginY: Int
+        get() = prefs.getInt("margin_y", 0)
+        set(v) = prefs.edit().putInt("margin_y", v.coerceIn(0, 20)).apply()
 
     // Behavior
     var soundEnabled: Boolean
@@ -74,6 +87,16 @@ class KeyboardSettings(context: Context) {
         get() = prefs.getBoolean("vertical_wrap", false)
         set(v) = prefs.edit().putBoolean("vertical_wrap", v).apply()
 
+    // Number row
+    var numberRowEnabled: Boolean
+        get() = prefs.getBoolean("number_row", false)
+        set(v) = prefs.edit().putBoolean("number_row", v).apply()
+
+    // Border-only highlight (vs filled key)
+    var borderHighlight: Boolean
+        get() = prefs.getBoolean("border_highlight", true)
+        set(v) = prefs.edit().putBoolean("border_highlight", v).apply()
+
     // D-pad repeat speed (ms)
     var dpadRepeatRate: Int
         get() = prefs.getInt("dpad_repeat_rate", 80)
@@ -83,8 +106,13 @@ class KeyboardSettings(context: Context) {
         get() = prefs.getInt("dpad_initial_delay", 400)
         set(v) = prefs.edit().putInt("dpad_initial_delay", v.coerceIn(100, 800)).apply()
 
+    var activePreset: String
+        get() = prefs.getString("active_preset", "ps5") ?: "ps5"
+        set(v) = prefs.edit().putString("active_preset", v).apply()
+
     // Presets
     fun applyPreset(preset: String) {
+        activePreset = preset
         when (preset) {
             "ps5" -> {
                 accentColor = Color.parseColor("#0070D1")
