@@ -161,6 +161,12 @@ class KeyboardSettings(context: Context) {
     var showDialpadBtn: Boolean
         get() = prefs.getBoolean("show_dialpad", true)
         set(v) = prefs.edit().putBoolean("show_dialpad", v).apply()
+    var showCopyBtn: Boolean
+        get() = prefs.getBoolean("show_copy", true)
+        set(v) = prefs.edit().putBoolean("show_copy", v).apply()
+    var showPasteBtn: Boolean
+        get() = prefs.getBoolean("show_paste", true)
+        set(v) = prefs.edit().putBoolean("show_paste", v).apply()
 
     // D-pad repeat speed (ms)
     var dpadRepeatRate: Int

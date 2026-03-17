@@ -535,6 +535,8 @@ fun SettingsTab() {
         var showVoice by remember { mutableStateOf(settings.showVoiceBtn) }
         var showSymbols by remember { mutableStateOf(settings.showSymbolsBtn) }
         var showDialpad by remember { mutableStateOf(settings.showDialpadBtn) }
+        var showCopy by remember { mutableStateOf(settings.showCopyBtn) }
+        var showPaste by remember { mutableStateOf(settings.showPasteBtn) }
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Column(modifier = Modifier.weight(1f)) {
@@ -542,11 +544,13 @@ fun SettingsTab() {
                 SettingSwitch("Enter", showEnter) { showEnter = it; settings.showEnterBtn = it }
                 SettingSwitch("Backspace", showBackspace) { showBackspace = it; settings.showBackspaceBtn = it }
                 SettingSwitch("Arrow Keys", showArrows) { showArrows = it; settings.showArrowKeys = it }
+                SettingSwitch("Copy", showCopy) { showCopy = it; settings.showCopyBtn = it }
             }
             Column(modifier = Modifier.weight(1f)) {
                 SettingSwitch("Voice", showVoice) { showVoice = it; settings.showVoiceBtn = it }
                 SettingSwitch("Symbols", showSymbols) { showSymbols = it; settings.showSymbolsBtn = it }
                 SettingSwitch("Dialpad", showDialpad) { showDialpad = it; settings.showDialpadBtn = it }
+                SettingSwitch("Paste", showPaste) { showPaste = it; settings.showPasteBtn = it }
             }
         }
     }
@@ -871,9 +875,10 @@ fun SettingSlider(label: String, value: Float, min: Float, max: Float, unit: Str
 fun ControlsTab() {
     val controls = listOf(
         "✕ Cross" to "Select", "△ Triangle" to "Space", "□ Square" to "Backspace",
-        "○ Circle" to "Close", "D-pad" to "Navigate", "L1 / R1" to "Cursor ←→",
-        "L2 hold" to "Shift", "R2" to "Enter", "L2+R2" to "New line",
-        "L3" to "Symbols", "Share" to "Voice", "Options" to "Done"
+        "○ Circle" to "Close", "D-pad" to "Navigate", "L1 / R1" to "Cursor ←→ (hold)",
+        "L2 hold" to "Shift", "L2 x2" to "Shift Lock", "L2+L1/R1" to "Select Text",
+        "R2" to "Enter", "L2+R2" to "New line",
+        "L3" to "Symbols", "Options" to "Done"
     )
 
     GlassCard {

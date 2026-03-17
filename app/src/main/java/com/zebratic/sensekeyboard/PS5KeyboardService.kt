@@ -63,6 +63,23 @@ class PS5KeyboardService : InputMethodService() {
                 val ec = ic?.getExtractedText(android.view.inputmethod.ExtractedTextRequest(), 0)
                 if (ec != null) { val p = ec.selectionStart + 1; if (p <= (ec.text?.length ?: 0)) ic?.setSelection(p, p) }
             }
+            onCopy = {
+                val ic = currentInputConnection
+                val ec = ic?.getExtractedText(android.view.inputmethod.ExtractedTextRequest(), 0)
+                if (ec != null && ec.selectionStart != ec.selectionEnd) {
+                    val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    val selected = ec.text?.substring(ec.selectionStart, ec.selectionEnd) ?: ""
+                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("text", selected))
+                }
+            }
+            onPaste = {
+                val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                val clip = clipboard.primaryClip
+                if (clip != null && clip.itemCount > 0) {
+                    val text = clip.getItemAt(0).text?.toString() ?: ""
+                    currentInputConnection?.commitText(text, 1)
+                }
+            }
             onSuggestionPicked = { word ->
                 val ic = currentInputConnection
                 if (ic != null) {
@@ -195,6 +212,37 @@ class PS5KeyboardService : InputMethodService() {
             GamepadAction.CURSOR_RIGHT -> {
                 val ec = currentInputConnection?.getExtractedText(android.view.inputmethod.ExtractedTextRequest(), 0)
                 if (ec != null) { val p = ec.selectionStart + 1; if (p <= (ec.text?.length ?: 0)) currentInputConnection?.setSelection(p, p) }
+            }
+            GamepadAction.SELECT_LEFT -> {
+                val ec = currentInputConnection?.getExtractedText(android.view.inputmethod.ExtractedTextRequest(), 0)
+                if (ec != null) {
+                    val newStart = (ec.selectionStart - 1).coerceAtLeast(0)
+                    currentInputConnection?.setSelection(newStart, ec.selectionEnd)
+                }
+            }
+            GamepadAction.SELECT_RIGHT -> {
+                val ec = currentInputConnection?.getExtractedText(android.view.inputmethod.ExtractedTextRequest(), 0)
+                if (ec != null) {
+                    val newEnd = (ec.selectionEnd + 1).coerceAtMost(ec.text?.length ?: 0)
+                    currentInputConnection?.setSelection(ec.selectionStart, newEnd)
+                }
+            }
+            GamepadAction.COPY -> {
+                val ic = currentInputConnection
+                val ec = ic?.getExtractedText(android.view.inputmethod.ExtractedTextRequest(), 0)
+                if (ec != null && ec.selectionStart != ec.selectionEnd) {
+                    val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    val selected = ec.text?.substring(ec.selectionStart, ec.selectionEnd) ?: ""
+                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("text", selected))
+                }
+            }
+            GamepadAction.PASTE -> {
+                val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                val clip = clipboard.primaryClip
+                if (clip != null && clip.itemCount > 0) {
+                    val text = clip.getItemAt(0).text?.toString() ?: ""
+                    currentInputConnection?.commitText(text, 1)
+                }
             }
             GamepadAction.SHIFT_ON -> view.setShift(true)
             GamepadAction.SHIFT_OFF -> view.setShift(false)

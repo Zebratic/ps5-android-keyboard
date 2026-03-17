@@ -22,6 +22,8 @@ class PS5KeyboardLayout @JvmOverloads constructor(
     var onSuggestionPicked: ((String) -> Unit)? = null
     var onCursorLeft: (() -> Unit)? = null
     var onCursorRight: (() -> Unit)? = null
+    var onCopy: (() -> Unit)? = null
+    var onPaste: (() -> Unit)? = null
 
     // State
     private var focusRow = -1 // -1 = suggestion row, 0+ = key rows
@@ -203,11 +205,13 @@ class PS5KeyboardLayout @JvmOverloads constructor(
         if (settings.showSpacebar) actionKeys.add("␣")
         if (settings.showVoiceBtn) actionKeys.add("🎤")
         if (settings.showBackspaceBtn) actionKeys.add("⌫")
+        if (settings.showCopyBtn) actionKeys.add("Copy")
+        if (settings.showPasteBtn) actionKeys.add("Paste")
         if (settings.showEnterBtn) actionKeys.add("Done")
         return letterRows + arrayOf(actionKeys.joinToString(" "))
     }
 
-    private val SPECIAL_KEYS = setOf("⇧", "@#:", "ABC", "123", "␣", "🎤", "⌫", "Done", "←", "→")
+    private val SPECIAL_KEYS = setOf("⇧", "@#:", "ABC", "123", "␣", "🎤", "⌫", "Done", "←", "→", "Copy", "Paste")
 
     private fun isSpecialKey(key: String): Boolean = key in SPECIAL_KEYS || key.all { it.isDigit() }
 
@@ -841,6 +845,8 @@ class PS5KeyboardLayout @JvmOverloads constructor(
             if (c == "␣") { onSpace?.invoke(); return }
             if (c == "Done") { onEnter?.invoke(); return }
             if (c == "🎤") { onSpeech?.invoke(); return }
+            if (c == "Copy") { onCopy?.invoke(); return }
+            if (c == "Paste") { onPaste?.invoke(); return }
             if (c == "@#:" || (c == "ABC" && symbolMode)) { toggleLayout(); return }
             if (c == "123" || (c == "ABC" && dialpadMode)) { toggleDialpad(); return }
             if (shifted && !symbolMode && !dialpadMode && c.length == 1 && c[0].isLetter()) {

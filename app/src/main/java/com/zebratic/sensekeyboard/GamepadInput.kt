@@ -8,6 +8,8 @@ enum class GamepadAction {
     NAVIGATE_UP, NAVIGATE_DOWN, NAVIGATE_LEFT, NAVIGATE_RIGHT,
     SELECT, CANCEL, BACKSPACE, SPACE,
     CURSOR_LEFT, CURSOR_RIGHT,
+    SELECT_LEFT, SELECT_RIGHT,
+    COPY, PASTE,
     SHIFT_ON, SHIFT_OFF,
     SWITCH_LAYOUT, ENTER, NEWLINE, SPEECH_INPUT, NONE
 }
@@ -31,6 +33,8 @@ object GamepadInput {
     private var lastDpadTime = 0L
     private var dpadHeldSince = 0L
     private var lastDpadKeyCode = 0
+    private var lastBumperTime = 0L
+    private var bumperHeldSince = 0L
 
     fun processKeyEvent(event: KeyEvent): GamepadAction {
         if (event.action != KeyEvent.ACTION_DOWN) return GamepadAction.NONE
@@ -39,8 +43,11 @@ object GamepadInput {
             KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN,
             KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT
         )
+        val isBumper = event.keyCode in intArrayOf(
+            KeyEvent.KEYCODE_BUTTON_L1, KeyEvent.KEYCODE_BUTTON_R1
+        )
 
-        if (event.repeatCount > 0 && !isDpad) return GamepadAction.NONE
+        if (event.repeatCount > 0 && !isDpad && !isBumper) return GamepadAction.NONE
 
         if (isDpad) {
             val now = System.currentTimeMillis()
@@ -58,6 +65,19 @@ object GamepadInput {
             }
         }
 
+        // Bumper repeat (L1/R1)
+        if (isBumper) {
+            val now = System.currentTimeMillis()
+            if (event.repeatCount == 0) {
+                bumperHeldSince = now; lastBumperTime = now
+            } else {
+                val holdDuration = now - bumperHeldSince
+                if (holdDuration < DPAD_INITIAL_DELAY_MS) return GamepadAction.NONE
+                if (now - lastBumperTime < DPAD_REPEAT_RATE_MS) return GamepadAction.NONE
+                lastBumperTime = now
+            }
+        }
+
         return when (event.keyCode) {
             KeyEvent.KEYCODE_DPAD_UP -> GamepadAction.NAVIGATE_UP
             KeyEvent.KEYCODE_DPAD_DOWN -> GamepadAction.NAVIGATE_DOWN
@@ -68,8 +88,8 @@ object GamepadInput {
             KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BACK -> GamepadAction.CANCEL
             KeyEvent.KEYCODE_BUTTON_X, KeyEvent.KEYCODE_DEL -> GamepadAction.BACKSPACE
             KeyEvent.KEYCODE_BUTTON_Y -> GamepadAction.SPACE
-            KeyEvent.KEYCODE_BUTTON_L1 -> GamepadAction.CURSOR_LEFT
-            KeyEvent.KEYCODE_BUTTON_R1 -> GamepadAction.CURSOR_RIGHT
+            KeyEvent.KEYCODE_BUTTON_L1 -> if (l2Pressed) GamepadAction.SELECT_LEFT else GamepadAction.CURSOR_LEFT
+            KeyEvent.KEYCODE_BUTTON_R1 -> if (l2Pressed) GamepadAction.SELECT_RIGHT else GamepadAction.CURSOR_RIGHT
             KeyEvent.KEYCODE_BUTTON_START, KeyEvent.KEYCODE_MENU -> GamepadAction.ENTER
             KeyEvent.KEYCODE_BUTTON_THUMBL -> GamepadAction.SWITCH_LAYOUT
             // Share button — no longer mapped (voice is on-screen button now)
