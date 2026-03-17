@@ -152,7 +152,11 @@ fun SenseKeyboardApp(onEnableKeyboard: () -> Unit, onSelectKeyboard: () -> Unit)
                 .padding(horizontal = 20.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("🎮", fontSize = 18.sp)
+            Image(
+                painter = painterResource(id = R.mipmap.ic_launcher),
+                contentDescription = "Logo",
+                modifier = Modifier.size(24.dp).clip(RoundedCornerShape(6.dp))
+            )
             Spacer(modifier = Modifier.width(8.dp))
             Text("SenseKeyboard", color = TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.width(20.dp))
@@ -301,18 +305,18 @@ fun SetupTab(onEnableKeyboard: () -> Unit, onSelectKeyboard: () -> Unit) {
     }
 
     Column {
-        // Banner
-        Image(
-            painter = painterResource(id = R.mipmap.ic_banner),
-            contentDescription = "SenseKeyboard Banner",
-            modifier = Modifier.fillMaxWidth().height(80.dp).clip(RoundedCornerShape(12.dp)),
-            contentScale = ContentScale.Crop
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-
-        // Title
-        Text("SenseKeyboard", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-        Text("Gamepad keyboard for Android TV — works with any controller", color = TextSecondary, fontSize = 10.sp)
+        // Header with logo
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("SenseKeyboard", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("Gamepad keyboard for Android TV — works with any controller", color = TextSecondary, fontSize = 10.sp)
+            }
+            Image(
+                painter = painterResource(id = R.mipmap.ic_launcher),
+                contentDescription = "Logo",
+                modifier = Modifier.size(48.dp).clip(RoundedCornerShape(12.dp))
+            )
+        }
         Spacer(modifier = Modifier.height(12.dp))
 
         // Setup steps
@@ -1345,13 +1349,10 @@ fun TestTab() {
 @Composable
 fun DebugTab() {
     val context = LocalContext.current
+    val settings = remember { KeyboardSettings(context) }
     var loggingEnabled by remember { mutableStateOf(DebugLogger.isEnabled()) }
     var logs by remember { mutableStateOf(DebugLogger.getRecentLogs()) }
-    var pressedButtons by remember { mutableStateOf(setOf<String>()) }
-    var l2Value by remember { mutableFloatStateOf(0f) }
-    var r2Value by remember { mutableFloatStateOf(0f) }
-    var leftStick by remember { mutableStateOf(Pair(0f, 0f)) }
-    var rightStick by remember { mutableStateOf(Pair(0f, 0f)) }
+    var filterText by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -1360,62 +1361,45 @@ fun DebugTab() {
         }
     }
 
+    val filteredLogs = if (filterText.isBlank()) logs else logs.filter { filterText.lowercase() in it.lowercase() }
+    val currentVersion = try { context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?" } catch (_: Exception) { "?" }
+    val versionCode = try { context.packageManager.getPackageInfo(context.packageName, 0).versionCode } catch (_: Exception) { 0 }
+
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        // Controller visualization
+        // Info panel
         Column(modifier = Modifier.weight(1f)) {
             GlassCard {
-                SectionLabel("Controller Input")
-                Box(
-                    modifier = Modifier.fillMaxWidth().height(180.dp)
-                        .background(Color(0xFF0A0C18), RoundedCornerShape(8.dp))
-                        .padding(12.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.align(Alignment.CenterStart).padding(start = 8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        ControllerButton("↑", "DPAD_UP" in pressedButtons)
-                        Row {
-                            ControllerButton("←", "DPAD_LEFT" in pressedButtons)
-                            Spacer(modifier = Modifier.width(20.dp))
-                            ControllerButton("→", "DPAD_RIGHT" in pressedButtons)
-                        }
-                        ControllerButton("↓", "DPAD_DOWN" in pressedButtons)
-                    }
-                    Column(
-                        modifier = Modifier.align(Alignment.CenterEnd).padding(end = 8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        ControllerButton("△", "TRIANGLE" in pressedButtons, Color(0xFF00D4AA))
-                        Row {
-                            ControllerButton("□", "SQUARE" in pressedButtons, Color(0xFFFF6B9D))
-                            Spacer(modifier = Modifier.width(20.dp))
-                            ControllerButton("○", "CIRCLE" in pressedButtons, Color(0xFFFF6B6B))
-                        }
-                        ControllerButton("✕", "CROSS" in pressedButtons, Color(0xFF6B9FFF))
-                    }
-                    Column(modifier = Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            MiniButton("L1", "L1" in pressedButtons)
-                            TriggerBar("L2", l2Value)
-                            TriggerBar("R2", r2Value)
-                            MiniButton("R1", "R1" in pressedButtons)
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            StickIndicator("L", leftStick.first, leftStick.second, "L3" in pressedButtons)
-                            StickIndicator("R", rightStick.first, rightStick.second, "R3" in pressedButtons)
-                        }
+                SectionLabel("App Info")
+                val infoItems = listOf(
+                    "Version" to "v$currentVersion (code $versionCode)",
+                    "Package" to context.packageName,
+                    "Config Version" to "${KeyboardSettings.CONFIG_VERSION}",
+                    "Active Preset" to settings.activePreset,
+                    "Layout" to settings.keyboardLayout,
+                    "Android" to "${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
+                    "Device" to "${Build.MANUFACTURER} ${Build.MODEL}"
+                )
+                infoItems.forEach { (label, value) ->
+                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 1.dp)) {
+                        Text(label, color = TextSecondary, fontSize = 8.sp, modifier = Modifier.width(80.dp))
+                        Text(value, color = TextPrimary, fontSize = 8.sp,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                     }
                 }
-                Spacer(modifier = Modifier.height(4.dp))
-                Text("Active: ${if (pressedButtons.isEmpty()) "none" else pressedButtons.joinToString(", ")}",
-                    color = if (pressedButtons.isEmpty()) TextSecondary else AccentColor, fontSize = 9.sp)
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            GlassCard {
+                SectionLabel("Config Export")
+                var exported by remember { mutableStateOf(false) }
+                AccentButton(if (exported) "Backed up ✓" else "Backup Config") {
+                    settings.backupBeforeUpdate(context)
+                    exported = true
+                }
             }
         }
 
         // Logs
-        Column(modifier = Modifier.weight(1f)) {
+        Column(modifier = Modifier.weight(1.5f)) {
             GlassCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     SectionLabel("Debug Logging")
@@ -1434,7 +1418,7 @@ fun DebugTab() {
                     Text("Path: ${DebugLogger.getLogFilePath()}", color = TextSecondary, fontSize = 7.sp)
                 }
                 Spacer(modifier = Modifier.height(4.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                     AccentButton("Refresh") { logs = DebugLogger.getRecentLogs() }
                     Button(
                         onClick = { DebugLogger.clearLogs(); logs = emptyList() },
@@ -1443,24 +1427,28 @@ fun DebugTab() {
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
                         modifier = Modifier.height(28.dp)
                     ) { Text("Clear", fontSize = 10.sp, color = Color(0xFFFF6B6B)) }
+                    Spacer(modifier = Modifier.weight(1f))
+                    Text("${filteredLogs.size} entries", color = TextSecondary, fontSize = 8.sp)
                 }
                 Spacer(modifier = Modifier.height(6.dp))
                 Box(
-                    modifier = Modifier.fillMaxWidth().height(150.dp)
+                    modifier = Modifier.fillMaxWidth().height(220.dp)
                         .background(Color(0xFF060810), RoundedCornerShape(6.dp))
                         .border(1.dp, CardBorder, RoundedCornerShape(6.dp))
                         .padding(6.dp)
                         .verticalScroll(rememberScrollState())
                 ) {
                     Column {
-                        if (logs.isEmpty()) {
+                        if (filteredLogs.isEmpty()) {
                             Text("No logs yet", color = TextSecondary.copy(alpha = 0.3f), fontSize = 8.sp)
                         } else {
-                            logs.takeLast(50).forEach { line ->
+                            filteredLogs.takeLast(100).forEach { line ->
                                 Text(line, color = when {
-                                    "ERROR" in line -> Color(0xFFFF6B6B)
+                                    "ERROR" in line || "CRASH" in line -> Color(0xFFFF6B6B)
                                     "WARN" in line -> Color(0xFFFFB86B)
-                                    "IME" in line -> Color(0xFF6BFFB8)
+                                    "IME" in line || "INPUT" in line -> Color(0xFF6BFFB8)
+                                    "SHIFT" in line || "LOCK" in line -> Color(0xFF6B9FFF)
+                                    "NAV" in line || "FOCUS" in line -> Color(0xFFBB86FC)
                                     else -> TextSecondary
                                 }, fontSize = 7.sp, lineHeight = 9.sp,
                                     fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
