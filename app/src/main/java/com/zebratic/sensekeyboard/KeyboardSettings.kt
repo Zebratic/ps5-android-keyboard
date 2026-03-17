@@ -38,6 +38,14 @@ class KeyboardSettings(context: Context) {
         get() = prefs.getInt("secondary_key_color", Color.parseColor("#1E2133"))
         set(v) = prefs.edit().putInt("secondary_key_color", v).apply()
 
+    // Key opacity (0-100)
+    var keyOpacity: Int
+        get() = prefs.getInt("key_opacity", 100)
+        set(v) = prefs.edit().putInt("key_opacity", v.coerceIn(0, 100)).apply()
+    var secondaryKeyOpacity: Int
+        get() = prefs.getInt("secondary_key_opacity", 100)
+        set(v) = prefs.edit().putInt("secondary_key_opacity", v.coerceIn(0, 100)).apply()
+
     // Visual - Opacity (0-100)
     var bgOpacity: Int
         get() = prefs.getInt("bg_opacity", 90)

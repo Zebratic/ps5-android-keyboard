@@ -150,8 +150,10 @@ class PS5KeyboardLayout @JvmOverloads constructor(
         val alpha = (settings.bgOpacity * 255 / 100)
         bgPaint.color = Color.argb(alpha,
             Color.red(settings.bgColor), Color.green(settings.bgColor), Color.blue(settings.bgColor))
-        keyPaint.color = settings.keyColor or (0xFF shl 24).toInt()
-        secondaryKeyPaint.color = settings.secondaryKeyColor or (0xFF shl 24).toInt()
+        val keyAlpha = (settings.keyOpacity * 255 / 100)
+        keyPaint.color = Color.argb(keyAlpha, Color.red(settings.keyColor), Color.green(settings.keyColor), Color.blue(settings.keyColor))
+        val secAlpha = (settings.secondaryKeyOpacity * 255 / 100)
+        secondaryKeyPaint.color = Color.argb(secAlpha, Color.red(settings.secondaryKeyColor), Color.green(settings.secondaryKeyColor), Color.blue(settings.secondaryKeyColor))
         focusPaint.color = settings.accentColor or (0xFF shl 24).toInt()
         // Sync suggestion colors with theme
         suggBgPaint.color = settings.secondaryKeyColor or (0xFF shl 24).toInt()

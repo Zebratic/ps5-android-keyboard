@@ -102,13 +102,7 @@ fun GlassCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.()
         modifier = modifier.border(1.dp, CardBorder, RoundedCornerShape(12.dp))
     ) {
         Column(
-            modifier = Modifier
-                .background(
-                    Brush.verticalGradient(
-                        listOf(GlassHighlight, Color.Transparent)
-                    )
-                )
-                .padding(12.dp),
+            modifier = Modifier.padding(12.dp),
             content = content
         )
     }
@@ -307,6 +301,22 @@ fun SetupTab(onEnableKeyboard: () -> Unit, onSelectKeyboard: () -> Unit) {
         GlassCard(modifier = Modifier.weight(1f)) {
             StepHeader("3", "Type!")
             Text("Open any text field. Connect DualSense via Bluetooth.", color = TextSecondary, fontSize = 10.sp, lineHeight = 14.sp)
+        }
+    }
+    Spacer(modifier = Modifier.height(10.dp))
+    GlassCard {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("🎮", fontSize = 16.sp)
+            Spacer(modifier = Modifier.width(8.dp))
+            Column {
+                Text("SenseKeyboard", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text("PS5 DualSense keyboard for Android TV", color = TextSecondary, fontSize = 9.sp)
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            Column(horizontalAlignment = Alignment.End) {
+                Text("by Zebratic", color = TextSecondary, fontSize = 9.sp)
+                Text("github.com/Zebratic/ps5-android-keyboard", color = AccentColor, fontSize = 8.sp)
+            }
         }
     }
 }
@@ -563,16 +573,39 @@ private fun SettingsProportions(settings: KeyboardSettings, markCustom: () -> Un
 
 @Composable
 private fun SettingsColors(settings: KeyboardSettings, markCustom: () -> Unit) {
+    var accentBrightness by remember { mutableFloatStateOf(100f) }
+    var accentSaturation by remember { mutableFloatStateOf(100f) }
+    var bgOpacity by remember { mutableFloatStateOf(settings.bgOpacity.toFloat()) }
+    var keyOpacity by remember { mutableFloatStateOf(settings.keyOpacity.toFloat()) }
+    var secKeyOpacity by remember { mutableFloatStateOf(settings.secondaryKeyOpacity.toFloat()) }
+
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Column(modifier = Modifier.weight(1f)) {
             GlassCard {
                 SectionLabel("Accent Color")
-                ColorPicker(selected = settings.accentColor, onSelected = { settings.accentColor = it; markCustom() })
+                ColorPicker(selected = settings.accentColor, onSelected = {
+                    settings.accentColor = it; accentBrightness = 100f; accentSaturation = 100f; markCustom()
+                })
+                Spacer(modifier = Modifier.height(4.dp))
+                SettingSlider("Brightness", accentBrightness, 20f, 200f, "%") {
+                    accentBrightness = it
+                    settings.accentColor = adjustBrightness(settings.accentColor, it / 100f)
+                    markCustom()
+                }
+                SettingSlider("Saturation", accentSaturation, 0f, 200f, "%") {
+                    accentSaturation = it
+                    settings.accentColor = adjustSaturation(settings.accentColor, it / 100f)
+                    markCustom()
+                }
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            GlassCard {
+                SectionLabel("Font Color")
+                ColorPicker(selected = settings.textColor, onSelected = { settings.textColor = it; markCustom() })
             }
             Spacer(modifier = Modifier.height(10.dp))
             GlassCard {
                 SectionLabel("Background Opacity")
-                var bgOpacity by remember { mutableFloatStateOf(settings.bgOpacity.toFloat()) }
                 SettingSlider("Opacity", bgOpacity, 0f, 100f, "%") { bgOpacity = it; settings.bgOpacity = it.toInt(); markCustom() }
             }
         }
@@ -581,9 +614,11 @@ private fun SettingsColors(settings: KeyboardSettings, markCustom: () -> Unit) {
                 SectionLabel("Key Colors")
                 Text("Primary (letters)", color = TextSecondary, fontSize = 9.sp)
                 DarkColorPicker(selected = settings.keyColor, onSelected = { settings.keyColor = it; markCustom() })
+                SettingSlider("Opacity", keyOpacity, 0f, 100f, "%") { keyOpacity = it; settings.keyOpacity = it.toInt(); markCustom() }
                 Spacer(modifier = Modifier.height(6.dp))
                 Text("Secondary (numbers, actions)", color = TextSecondary, fontSize = 9.sp)
                 DarkColorPicker(selected = settings.secondaryKeyColor, onSelected = { settings.secondaryKeyColor = it; markCustom() })
+                SettingSlider("Opacity", secKeyOpacity, 0f, 100f, "%") { secKeyOpacity = it; settings.secondaryKeyOpacity = it.toInt(); markCustom() }
             }
         }
     }
@@ -849,6 +884,13 @@ private fun adjustBrightness(color: Int, factor: Float): Int {
     val g = ((color shr 8 and 0xFF) * factor).toInt().coerceIn(0, 255)
     val b = ((color and 0xFF) * factor).toInt().coerceIn(0, 255)
     return (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+}
+
+private fun adjustSaturation(color: Int, factor: Float): Int {
+    val hsv = FloatArray(3)
+    android.graphics.Color.colorToHSV(color or (0xFF shl 24).toInt(), hsv)
+    hsv[1] = (hsv[1] * factor).coerceIn(0f, 1f)
+    return android.graphics.Color.HSVToColor(hsv)
 }
 
 private fun colorsClose(a: Int, b: Int): Boolean {

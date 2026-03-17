@@ -11,13 +11,24 @@ android {
         applicationId = "com.zebratic.sensekeyboard"
         minSdk = 21
         targetSdk = 34
-        versionCode = 1
+        versionCode = 10
         versionName = "1.0.0"
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = file("../release.keystore")
+            storePassword = "sensekeyboard123"
+            keyAlias = "sensekeyboard"
+            keyPassword = "sensekeyboard123"
+        }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
