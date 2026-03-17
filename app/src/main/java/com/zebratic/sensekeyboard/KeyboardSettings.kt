@@ -33,6 +33,11 @@ class KeyboardSettings(context: Context) {
         get() = prefs.getInt("text_color", Color.WHITE)
         set(v) = prefs.edit().putInt("text_color", v).apply()
 
+    // Secondary key color (number row, action keys)
+    var secondaryKeyColor: Int
+        get() = prefs.getInt("secondary_key_color", Color.parseColor("#1E2133"))
+        set(v) = prefs.edit().putInt("secondary_key_color", v).apply()
+
     // Visual - Opacity (0-100)
     var bgOpacity: Int
         get() = prefs.getInt("bg_opacity", 90)
@@ -118,6 +123,11 @@ class KeyboardSettings(context: Context) {
     var keyRounding: Int
         get() = prefs.getInt("key_rounding", 6)
         set(v) = prefs.edit().putInt("key_rounding", v.coerceIn(0, 24)).apply()
+
+    // Navigation effect: "wind", "slide", "ripple", "trail", "none"
+    var navEffect: String
+        get() = prefs.getString("nav_effect", "wind") ?: "wind"
+        set(v) = prefs.edit().putString("nav_effect", v).apply()
 
     // Click animation: "none", "fill", "pop", "flash"
     var clickAnimation: String

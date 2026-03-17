@@ -30,6 +30,25 @@ class PS5KeyboardLayout @JvmOverloads constructor(
     private var clickAnimCol = -2
     private var clickAnimStart = 0L
     private val clickAnimDuration = 150L
+
+    // Slide animation state
+    private var slideFromX = 0f
+    private var slideFromY = 0f
+    private var slideToX = 0f
+    private var slideToY = 0f
+    private var slideStart = 0L
+    private val slideDuration = 100L
+    private var slideActive = false
+
+    // Ripple effect
+    private var rippleX = 0f
+    private var rippleY = 0f
+    private var rippleStart = 0L
+    private val rippleDuration = 200L
+
+    // Trail effect
+    private data class TrailPoint(val x: Float, val y: Float, val w: Float, val h: Float, var alpha: Float)
+    private val trailPoints = mutableListOf<TrailPoint>()
     private var shifted = false
     private var symbolMode = false
     private var dialpadMode = false
@@ -60,6 +79,7 @@ class PS5KeyboardLayout @JvmOverloads constructor(
     private val dp = resources.displayMetrics.density
     private val bgPaint = Paint()
     private val keyPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val secondaryKeyPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val focusPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         maskFilter = BlurMaskFilter(12f * dp, BlurMaskFilter.Blur.NORMAL)
@@ -125,7 +145,13 @@ class PS5KeyboardLayout @JvmOverloads constructor(
         bgPaint.color = Color.argb(alpha,
             Color.red(settings.bgColor), Color.green(settings.bgColor), Color.blue(settings.bgColor))
         keyPaint.color = settings.keyColor or (0xFF shl 24).toInt()
+        secondaryKeyPaint.color = settings.secondaryKeyColor or (0xFF shl 24).toInt()
         focusPaint.color = settings.accentColor or (0xFF shl 24).toInt()
+        // Sync suggestion colors with theme
+        suggBgPaint.color = settings.secondaryKeyColor or (0xFF shl 24).toInt()
+        suggFocusBgPaint.color = settings.accentColor or (0xFF shl 24).toInt()
+        suggPaint.color = Color.argb(200, Color.red(settings.textColor), Color.green(settings.textColor), Color.blue(settings.textColor))
+        suggFocusPaint.color = settings.textColor or (0xFF shl 24).toInt()
         glowPaint.color = Color.argb(64,
             Color.red(settings.accentColor), Color.green(settings.accentColor), Color.blue(settings.accentColor))
         textPaint.color = settings.textColor or (0xFF shl 24).toInt()
@@ -156,7 +182,7 @@ class PS5KeyboardLayout @JvmOverloads constructor(
         "1 2 3",
         "4 5 6",
         "7 8 9",
-        "← 0 →"
+        "← 0 → ABC"
     )
 
     private fun getLetterLayout(): KeyboardLayoutDef = KeyboardLayouts.getById(currentLayoutId)
@@ -179,6 +205,19 @@ class PS5KeyboardLayout @JvmOverloads constructor(
         if (settings.showBackspaceBtn) actionKeys.add("⌫")
         if (settings.showEnterBtn) actionKeys.add("Done")
         return letterRows + arrayOf(actionKeys.joinToString(" "))
+    }
+
+    private val SPECIAL_KEYS = setOf("⇧", "@#:", "ABC", "123", "␣", "🎤", "⌫", "Done", "←", "→")
+
+    private fun isSpecialKey(key: String): Boolean = key in SPECIAL_KEYS || key.all { it.isDigit() }
+
+    private fun isSpecialRow(row: Int): Boolean {
+        // Number row (first row when number row enabled) or action row (last row)
+        val rows = getActiveRows()
+        if (row < 0 || row >= rows.size) return false
+        if (row == rows.size - 1) return true // action row
+        if (settings.numberRowEnabled && !symbolMode && !dialpadMode && row == 0) return true // number row
+        return false
     }
 
     private fun getChars(row: Int): List<String> = getActiveRows()[row].split(" ")
@@ -273,6 +312,72 @@ class PS5KeyboardLayout @JvmOverloads constructor(
         }
     }
 
+    private fun drawSlideEffect(canvas: Canvas) {
+        if (!slideActive) return
+        val elapsed = System.currentTimeMillis() - slideStart
+        if (elapsed > slideDuration) { slideActive = false; return }
+        val t = elapsed.toFloat() / slideDuration
+        // Animate border sliding from old to new position
+        val cr = settings.keyRounding * dp
+        val rect = getKeyRect(focusRow, focusCol) ?: return
+        val bw = settings.highlightBorderSize * dp
+        // Interpolate rect from old pos
+        val fromRect = RectF(
+            slideFromX - rect.width()/2, slideFromY - rect.height()/2,
+            slideFromX + rect.width()/2, slideFromY + rect.height()/2
+        )
+        val curRect = RectF(
+            fromRect.left + (rect.left - fromRect.left) * t,
+            fromRect.top + (rect.top - fromRect.top) * t,
+            fromRect.right + (rect.right - fromRect.right) * t,
+            fromRect.bottom + (rect.bottom - fromRect.bottom) * t
+        )
+        val bp = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = settings.accentColor or (0xFF shl 24).toInt()
+            style = Paint.Style.STROKE; strokeWidth = bw
+            alpha = ((1f - t * 0.3f) * 255).toInt()
+        }
+        canvas.drawRoundRect(curRect, cr, cr, bp)
+        postInvalidateDelayed(16)
+    }
+
+    private fun drawRippleEffect(canvas: Canvas) {
+        val elapsed = System.currentTimeMillis() - rippleStart
+        if (elapsed > rippleDuration) return
+        val t = elapsed.toFloat() / rippleDuration
+        val maxRadius = 30f * dp
+        val radius = maxRadius * t
+        val alpha = ((1f - t) * 120).toInt()
+        val accent = settings.accentColor
+        val rp = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(alpha, Color.red(accent), Color.green(accent), Color.blue(accent))
+            style = Paint.Style.STROKE; strokeWidth = 3f * dp * (1f - t)
+        }
+        canvas.drawCircle(rippleX, rippleY, radius, rp)
+        // Inner fill
+        val fp = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb((alpha * 0.3f).toInt(), Color.red(accent), Color.green(accent), Color.blue(accent))
+        }
+        canvas.drawCircle(rippleX, rippleY, radius * 0.5f, fp)
+        postInvalidateDelayed(16)
+    }
+
+    private fun drawTrailEffect(canvas: Canvas) {
+        val cr = settings.keyRounding * dp
+        val accent = settings.accentColor
+        val iter = trailPoints.iterator()
+        while (iter.hasNext()) {
+            val tp = iter.next()
+            tp.alpha -= 0.08f
+            if (tp.alpha <= 0) { iter.remove(); continue }
+            val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.argb((tp.alpha * 80).toInt(), Color.red(accent), Color.green(accent), Color.blue(accent))
+            }
+            canvas.drawRoundRect(RectF(tp.x, tp.y, tp.x + tp.w, tp.y + tp.h), cr, cr, p)
+        }
+        if (trailPoints.isNotEmpty()) postInvalidateDelayed(16)
+    }
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val w = width.toFloat()
@@ -346,8 +451,9 @@ class PS5KeyboardLayout @JvmOverloads constructor(
                     canvas.drawRoundRect(gr, cr + bw, cr + bw, glowPaint)
                 }
 
-                // Key background
-                canvas.drawRoundRect(rect, cr, cr, keyPaint)
+                // Key background — secondary color for special keys
+                val bgP = if (isSpecialRow(row) || isSpecialKey(chars[col])) secondaryKeyPaint else keyPaint
+                canvas.drawRoundRect(rect, cr, cr, bgP)
 
                 // Highlight
                 if (isFocused) {
@@ -416,33 +522,52 @@ class PS5KeyboardLayout @JvmOverloads constructor(
         if (settings.showHintBar) drawHintBar(canvas, w, h, hintH, sidePad)
 
         // Wind particles on top of everything
-        drawWindParticles(canvas)
+        // Navigation effects
+        when (settings.navEffect) {
+            "wind" -> drawWindParticles(canvas)
+            "slide" -> drawSlideEffect(canvas)
+            "ripple" -> drawRippleEffect(canvas)
+            "trail" -> drawTrailEffect(canvas)
+        }
     }
 
     private fun drawSuggestions(canvas: Canvas, sidePad: Float, topPad: Float, areaW: Float, suggestH: Float) {
         if (suggestions.isEmpty()) return
 
         val y = topPad
-        val chipSpacing = 8f * dp
-        val chipH = suggestH * 0.75f
+        val chipSpacing = 6f * dp
+        val chipH = suggestH * 0.80f
         val chipY = y + (suggestH - chipH) / 2
-        val chipW = (areaW - chipSpacing * (suggestions.size - 1)) / suggestions.size.coerceAtMost(5)
-        val cr = 8f * dp
+        val cr = settings.keyRounding * dp * 0.8f
 
-        suggPaint.textSize = chipH * 0.45f
-        suggFocusPaint.textSize = chipH * 0.45f
+        suggPaint.textSize = chipH * 0.50f
+        suggFocusPaint.textSize = chipH * 0.50f
 
+        // Compact left-to-right: measure each word, fit-to-content
+        var xCursor = sidePad
         for ((i, word) in suggestions.withIndex()) {
             if (i >= 5) break
             val isFocused = focusRow == -1 && focusCol == i
-            val x = sidePad + i * (chipW + chipSpacing)
-            val rect = RectF(x, chipY, x + chipW, chipY + chipH)
+            val paint = if (isFocused) suggFocusPaint else suggPaint
+            val textW = paint.measureText(word)
+            val chipW = textW + 20f * dp
+            if (xCursor + chipW > sidePad + areaW) break
 
+            val rect = RectF(xCursor, chipY, xCursor + chipW, chipY + chipH)
             canvas.drawRoundRect(rect, cr, cr, if (isFocused) suggFocusBgPaint else suggBgPaint)
 
-            val paint = if (isFocused) suggFocusPaint else suggPaint
+            // Focus border
+            if (isFocused) {
+                val bp = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = focusPaint.color; style = Paint.Style.STROKE
+                    strokeWidth = settings.highlightBorderSize * dp * 0.7f
+                }
+                canvas.drawRoundRect(rect, cr, cr, bp)
+            }
+
             val textY = chipY + chipH/2 - (paint.descent() + paint.ascent()) / 2
-            canvas.drawText(word, x + chipW/2, textY, paint)
+            canvas.drawText(word, xCursor + chipW/2, textY, paint)
+            xCursor += chipW + chipSpacing
         }
     }
 
@@ -550,9 +675,69 @@ class PS5KeyboardLayout @JvmOverloads constructor(
         }
     }
 
+    private fun getKeyRect(row: Int, col: Int): RectF? {
+        val w = width.toFloat(); val h = height.toFloat()
+        if (w == 0f || h == 0f) return null
+        val sidePad = w * 0.04f
+        val topPad = h * 0.03f
+        val suggestH = if (settings.suggestionsEnabled) h * 0.10f else 0f
+        val hintH = if (settings.showHintBar) h * 0.14f else 0f
+        val keyAreaH = h - topPad - suggestH - hintH
+        val keyAreaW = w - sidePad * 2
+        val rows = rowCount()
+        val maxCols = (0 until rows).maxOf { colCount(it) }
+        val keySpacing = 3f * dp
+        val keyW = (keyAreaW - keySpacing * (maxCols - 1)) / maxCols
+        val keyH = (keyAreaH - keySpacing * (rows - 1)) / rows
+        val keyStartY = topPad + suggestH
+        val r = row.coerceAtLeast(0).coerceAtMost(rows - 1)
+        val cols = colCount(r)
+        val rowW = cols * keyW + (cols - 1) * keySpacing
+        val offsetX = (w - rowW) / 2
+        val c = col.coerceIn(0, cols - 1)
+        val x = offsetX + c * (keyW + keySpacing)
+        val y = keyStartY + r * (keyH + keySpacing)
+        return RectF(x, y, x + keyW, y + keyH)
+    }
+
+    private fun triggerNavEffect() {
+        val rect = getKeyRect(focusRow, focusCol) ?: return
+        val cx = rect.centerX(); val cy = rect.centerY()
+        when (settings.navEffect) {
+            "wind" -> spawnWindParticles()
+            "slide" -> {
+                slideToX = cx; slideToY = cy
+                if (!slideActive) { slideFromX = cx; slideFromY = cy }
+                slideStart = System.currentTimeMillis()
+                slideActive = true
+                postInvalidateDelayed(16)
+            }
+            "ripple" -> {
+                rippleX = cx; rippleY = cy
+                rippleStart = System.currentTimeMillis()
+                postInvalidateDelayed(16)
+            }
+            "trail" -> {
+                trailPoints.add(TrailPoint(rect.left, rect.top, rect.width(), rect.height(), 1f))
+                if (trailPoints.size > 5) trailPoints.removeAt(0)
+                postInvalidateDelayed(16)
+            }
+        }
+    }
+
     fun moveFocus(dx: Int, dy: Int) {
+        // Record old position for slide
+        val oldRect = getKeyRect(focusRow, focusCol)
+        if (oldRect != null) { slideFromX = oldRect.centerX(); slideFromY = oldRect.centerY() }
         val minRow = if (settings.suggestionsEnabled && suggestions.isNotEmpty()) -1 else 0
         val maxRow = rowCount() - 1
+
+        val oldRow = focusRow
+        val oldColCount = when {
+            oldRow == -1 -> suggestions.size.coerceAtLeast(1)
+            oldRow in 0 until rowCount() -> colCount(oldRow)
+            else -> 1
+        }
 
         // Vertical movement
         if (dy != 0) {
@@ -563,6 +748,20 @@ class PS5KeyboardLayout @JvmOverloads constructor(
                 focusRow = if (settings.verticalWrap) minRow else maxRow
             } else {
                 focusRow = newRow
+            }
+
+            // Proportional column mapping when changing rows
+            if (focusRow != oldRow) {
+                val newMaxCol = when {
+                    focusRow == -1 -> (suggestions.size - 1).coerceAtLeast(0)
+                    else -> colCount(focusRow) - 1
+                }
+                if (newMaxCol != oldColCount - 1 && oldColCount > 0) {
+                    val proportion = focusCol.toFloat() / (oldColCount - 1).coerceAtLeast(1)
+                    focusCol = (proportion * newMaxCol).toInt().coerceIn(0, newMaxCol)
+                } else {
+                    focusCol = focusCol.coerceIn(0, newMaxCol)
+                }
             }
         }
 
@@ -581,17 +780,17 @@ class PS5KeyboardLayout @JvmOverloads constructor(
             } else {
                 focusCol = newCol
             }
-        } else {
+        } else if (dy == 0) {
             focusCol = focusCol.coerceIn(0, maxCol)
         }
 
 
-        // Spawn wind particles
+        // Navigation effect
         if (dx != 0 || dy != 0) {
             lastMoveDir = when {
                 dx > 0 -> 1; dx < 0 -> 2; dy > 0 -> 3; else -> 4
             }
-            spawnWindParticles()
+            triggerNavEffect()
         }
 
         invalidate()

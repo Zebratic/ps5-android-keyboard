@@ -90,11 +90,16 @@ object GamepadInput {
         val l2Now = l2Value > TRIGGER_THRESHOLD
         if (l2Now && !l2Pressed) {
             val now = System.currentTimeMillis()
-            if (now - lastL2PressTime < DOUBLE_TAP_MS) {
-                // Double tap — toggle shift lock
-                shiftLocked = !shiftLocked
-                actions.add(if (shiftLocked) GamepadAction.SHIFT_ON else GamepadAction.SHIFT_OFF)
-            } else if (!shiftLocked) {
+            if (shiftLocked) {
+                // Any press while locked → unlock
+                shiftLocked = false
+                actions.add(GamepadAction.SHIFT_OFF)
+            } else if (now - lastL2PressTime < DOUBLE_TAP_MS) {
+                // Double tap → lock shift on
+                shiftLocked = true
+                actions.add(GamepadAction.SHIFT_ON)
+            } else {
+                // Single tap → temporary shift
                 actions.add(GamepadAction.SHIFT_ON)
             }
             lastL2PressTime = now

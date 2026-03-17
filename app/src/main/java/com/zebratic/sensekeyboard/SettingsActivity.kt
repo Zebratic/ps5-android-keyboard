@@ -409,6 +409,15 @@ fun SettingsTab() {
                     selected = clickAnimation,
                     onSelected = { clickAnimation = it; settings.clickAnimation = it }
                 )
+
+                Spacer(modifier = Modifier.height(10.dp))
+                SectionLabel("Navigation Effect")
+                var navEffect by remember { mutableStateOf(settings.navEffect) }
+                DropdownSetting(
+                    options = listOf("wind" to "Wind Particles", "slide" to "Sliding Border", "ripple" to "Ripple", "trail" to "Ghost Trail", "none" to "None"),
+                    selected = navEffect,
+                    onSelected = { navEffect = it; settings.navEffect = it }
+                )
             }
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -417,6 +426,14 @@ fun SettingsTab() {
                 SettingSlider("Border Size", highlightBorderSize, 1f, 8f, "dp") { highlightBorderSize = it; settings.highlightBorderSize = it.toInt() }
                 Spacer(modifier = Modifier.height(4.dp))
                 SettingSlider("Corner Rounding", keyRounding, 0f, 24f, "dp") { keyRounding = it; settings.keyRounding = it.toInt() }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                SectionLabel("Key Colors")
+                Text("Primary (letters)", color = TextSecondary, fontSize = 9.sp)
+                ColorPicker(selected = settings.keyColor, onSelected = { settings.keyColor = it })
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("Secondary (numbers, actions)", color = TextSecondary, fontSize = 9.sp)
+                ColorPicker(selected = settings.secondaryKeyColor, onSelected = { settings.secondaryKeyColor = it })
             }
 
             Spacer(modifier = Modifier.height(10.dp))
